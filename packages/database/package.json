@@ -1,0 +1,34 @@
+{
+  "name": "@itay-chai/database",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./seed-data": "./src/seed-data.ts"
+  },
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
+    "seed": "tsx --env-file=../../.env src/seed.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "tsx --env-file=../../.env --test src/*.test.ts"
+  },
+  "prisma": {
+    "seed": "tsx src/seed.ts"
+  },
+  "dependencies": {
+    "@itay-chai/auth": "workspace:*",
+    "@itay-chai/config": "workspace:*",
+    "@itay-chai/contracts": "workspace:*",
+    "@prisma/client": "^6.13.0",
+    "dotenv": "^16.6.1"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^8.0.0",
+    "prisma": "^6.13.0",
+    "tsx": "^4.20.4",
+    "typescript": "^5.9.2"
+  }
+}

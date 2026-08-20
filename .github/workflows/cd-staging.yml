@@ -1,0 +1,24 @@
+name: CD staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Immutable image tag to promote
+        required: true
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require AWS credentials
+        env:
+          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+        run: |
+          if [ -z "$AWS_ROLE_ARN" ]; then
+            echo "Staging deploy is a skeleton. Set AWS_ROLE_ARN, then apply infra/ and deploy the tagged images."
+            echo "Requested tag: ${{ inputs.image_tag }}"
+            exit 0
+          fi
+          echo "AWS role is configured. Wire ECS deploy here after the CDK stack is applied."

@@ -1,0 +1,44 @@
+{
+  "name": "itay-chai",
+  "private": true,
+  "packageManager": "pnpm@10.14.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start:local": "node scripts/start-local.mjs",
+    "postinstall": "pnpm db:generate",
+    "dev": "turbo run dev --filter=@itay-chai/api --filter=@itay-chai/worker --filter=@itay-chai/outbox-relay",
+    "dev:web": "turbo run dev --filter=@itay-chai/owner-web --filter=@itay-chai/ops-web",
+    "infra:up": "supabase start && docker compose up -d redis",
+    "infra:down": "docker compose down && supabase stop",
+    "db:generate": "pnpm --filter @itay-chai/database generate",
+    "db:migrate": "pnpm --filter @itay-chai/database migrate:deploy",
+    "db:seed": "pnpm --filter @itay-chai/database seed",
+    "db:setup": "pnpm db:generate && pnpm db:migrate && pnpm db:seed",
+    "test": "pnpm --filter @itay-chai/domain test && pnpm --filter @itay-chai/auth test && pnpm --filter @itay-chai/database test && pnpm --filter @itay-chai/api test",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "format": "prettier --write ."
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@nestjs/core",
+      "@prisma/client",
+      "@prisma/engines",
+      "esbuild",
+      "msgpackr-extract",
+      "prisma"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "@eslint/js": "^9.33.0",
+    "eslint": "^9.33.0",
+    "eslint-plugin-boundaries": "^5.0.1",
+    "prettier": "^3.6.2",
+    "turbo": "^2.5.5",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.39.1"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "@itay-chai/outbox-relay",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=../../.env src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@itay-chai/config": "workspace:*",
+    "@itay-chai/contracts": "workspace:*",
+    "@itay-chai/database": "workspace:*",
+    "@itay-chai/integrations": "workspace:*",
+    "@itay-chai/observability": "workspace:*",
+    "dotenv": "^16.6.1",
+    "ioredis": "^5.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "tsx": "^4.20.4",
+    "typescript": "^5.9.2"
+  }
+}

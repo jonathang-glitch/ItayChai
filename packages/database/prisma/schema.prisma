@@ -1,0 +1,445 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SessionStatus {
+  DRAFT
+  INITIALIZING
+  PLANNING
+  COMPLETED
+  FAILED
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum BusinessUnitKind {
+  STORE
+  PROPERTY
+  AGENCY
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INVITED
+  DISABLED
+}
+
+enum JobErrorClass {
+  TRANSIENT
+  VALIDATION
+  AUTHORIZATION
+  PROVIDER
+  UNKNOWN
+}
+
+enum DlqStatus {
+  OPEN
+  REPLAYED
+}
+
+model Tenant {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  status    String   @default("active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  sessions         AgentSession[]
+  transitions      SessionTransition[]
+  domainEvents     DomainEvent[]
+  outboxMessages   OutboxMessage[]
+  auditEntries     AuditEntry[]
+  webhookReceipts  WebhookReceipt[]
+  messages         Message[]
+  businessUnits    BusinessUnit[]
+  roles            Role[]
+  memberships      TenantMembership[]
+  identities       StakeholderIdentity[]
+  breakGlassGrants BreakGlassGrant[]
+  invitations      Invitation[]
+  inboxMessages    InboxMessage[]
+  idempotencyKeys  IdempotencyRecord[]
+  jobAttempts      JobAttempt[]
+  dlqItems         DlqItem[]
+  dlqReplays       DlqReplay[]
+
+  @@map("tenants")
+}
+
+model BusinessUnit {
+  id        String           @id @default(uuid()) @db.Uuid
+  tenantId  String           @map("tenant_id") @db.Uuid
+  kind      BusinessUnitKind
+  name      String
+  timezone  String           @default("Asia/Jerusalem")
+  config    Json             @default("{}")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  tenant      Tenant              @relation(fields: [tenantId], references: [id])
+  memberships TenantMembership[]
+  sessions    AgentSession[]
+
+  @@index([tenantId, id])
+  @@map("business_units")
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  authSubject  String   @unique @map("auth_subject")
+  email        String?  @unique
+  passwordHash String?  @map("password_hash")
+  phone        String?
+  locale       String   @default("he-IL")
+  timezone     String   @default("Asia/Jerusalem")
+  isOpsAdmin   Boolean  @default(false) @map("is_ops_admin")
+  mfaEnabled   Boolean  @default(false) @map("mfa_enabled")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  memberships  TenantMembership[]
+  devices      UserDevice[]
+  identities   StakeholderIdentity[]
+  authSessions AuthSession[]
+  resetTokens  PasswordResetToken[]
+
+  @@map("users")
+}
+
+model Role {
+  id       String  @id @default(uuid()) @db.Uuid
+  tenantId String? @map("tenant_id") @db.Uuid
+  name     String
+
+  tenant      Tenant?            @relation(fields: [tenantId], references: [id])
+  permissions RolePermission[]
+  memberships TenantMembership[]
+
+  @@unique([tenantId, name])
+  @@map("roles")
+}
+
+model Permission {
+  id          String @id @default(uuid()) @db.Uuid
+  key         String @unique
+  description String
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String @map("role_id") @db.Uuid
+  permissionId String @map("permission_id") @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model TenantMembership {
+  id             String           @id @default(uuid()) @db.Uuid
+  tenantId       String           @map("tenant_id") @db.Uuid
+  userId         String           @map("user_id") @db.Uuid
+  roleId         String           @map("role_id") @db.Uuid
+  businessUnitId String?          @map("business_unit_id") @db.Uuid
+  status         MembershipStatus @default(ACTIVE)
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  user         User          @relation(fields: [userId], references: [id])
+  role         Role          @relation(fields: [roleId], references: [id])
+  businessUnit BusinessUnit? @relation(fields: [businessUnitId], references: [id])
+
+  @@unique([tenantId, userId, roleId])
+  @@index([tenantId, userId])
+  @@map("tenant_memberships")
+}
+
+model UserDevice {
+  id                 String   @id @default(uuid()) @db.Uuid
+  userId             String   @map("user_id") @db.Uuid
+  platform           String
+  pushToken          String?  @unique @map("push_token")
+  installationIdHash String   @unique @map("installation_id_hash")
+  lastSeenAt         DateTime @default(now()) @map("last_seen_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, platform])
+  @@map("user_devices")
+}
+
+model StakeholderIdentity {
+  id         String    @id @default(uuid()) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  userId     String?   @map("user_id") @db.Uuid
+  channel    String
+  externalId String    @map("external_id")
+  verifiedAt DateTime? @map("verified_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User?  @relation(fields: [userId], references: [id])
+
+  @@unique([tenantId, channel, externalId])
+  @@map("stakeholder_identities")
+}
+
+model AuthSession {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  refreshTokenHash String    @unique @map("refresh_token_hash")
+  expiresAt        DateTime  @map("expires_at")
+  revokedAt        DateTime? @map("revoked_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, expiresAt])
+  @@map("auth_sessions")
+}
+
+model Invitation {
+  id              String    @id @default(uuid()) @db.Uuid
+  tenantId        String    @map("tenant_id") @db.Uuid
+  email           String
+  roleName        String    @map("role_name")
+  tokenHash       String    @unique @map("token_hash")
+  expiresAt       DateTime  @map("expires_at")
+  acceptedAt      DateTime? @map("accepted_at")
+  invitedByUserId String    @map("invited_by_user_id") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, email])
+  @@map("invitations")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("password_reset_tokens")
+}
+
+model BreakGlassGrant {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorUserId String   @map("actor_user_id") @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  reason      String
+  createdAt   DateTime @default(now()) @map("created_at")
+  expiresAt   DateTime @map("expires_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, actorUserId])
+  @@map("break_glass_grants")
+}
+
+model AgentSession {
+  id                String        @id @default(uuid()) @db.Uuid
+  tenantId          String        @map("tenant_id") @db.Uuid
+  businessUnitId    String?       @map("business_unit_id") @db.Uuid
+  status            SessionStatus @default(DRAFT)
+  version           Int           @default(0)
+  externalMessageId String        @map("external_message_id")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  businessUnit BusinessUnit? @relation(fields: [businessUnitId], references: [id])
+  transitions  SessionTransition[]
+  messages     Message[]
+
+  @@unique([tenantId, externalMessageId])
+  @@index([tenantId, status])
+  @@index([tenantId, id])
+  @@map("agent_sessions")
+}
+
+model SessionTransition {
+  id         String         @id @default(uuid()) @db.Uuid
+  tenantId   String         @map("tenant_id") @db.Uuid
+  sessionId  String         @map("session_id") @db.Uuid
+  fromStatus SessionStatus? @map("from_status")
+  toStatus   SessionStatus  @map("to_status")
+  createdAt  DateTime       @default(now()) @map("created_at")
+
+  tenant  Tenant       @relation(fields: [tenantId], references: [id])
+  session AgentSession @relation(fields: [sessionId], references: [id])
+
+  @@index([tenantId, sessionId])
+  @@map("session_transitions")
+}
+
+model DomainEvent {
+  id               String   @id @default(uuid()) @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  eventType        String   @map("event_type")
+  schemaVersion    Int      @default(1) @map("schema_version")
+  aggregateType    String   @map("aggregate_type")
+  aggregateId      String   @map("aggregate_id") @db.Uuid
+  aggregateVersion Int      @map("aggregate_version")
+  payload          Json
+  correlationId    String   @map("correlation_id")
+  causationId      String?  @map("causation_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  tenant         Tenant          @relation(fields: [tenantId], references: [id])
+  outboxMessages OutboxMessage[]
+
+  @@index([tenantId, aggregateId])
+  @@map("domain_events")
+}
+
+model OutboxMessage {
+  id          String    @id @default(uuid()) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  eventId     String    @map("event_id") @db.Uuid
+  destination String
+  payload     Json
+  publishedAt DateTime? @map("published_at")
+  attempts    Int       @default(0)
+  lastError   String?   @map("last_error")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  tenant Tenant      @relation(fields: [tenantId], references: [id])
+  event  DomainEvent @relation(fields: [eventId], references: [id])
+
+  @@index([publishedAt, createdAt])
+  @@map("outbox_messages")
+}
+
+model AuditEntry {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  actorType    String   @map("actor_type")
+  action       String
+  resourceType String   @map("resource_type")
+  resourceId   String   @map("resource_id")
+  metadata     Json
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@map("audit_entries")
+}
+
+model WebhookReceipt {
+  id                String   @id @default(uuid()) @db.Uuid
+  tenantId          String   @map("tenant_id") @db.Uuid
+  provider          String
+  externalMessageId String   @map("external_message_id")
+  receivedAt        DateTime @default(now()) @map("received_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([provider, externalMessageId])
+  @@index([tenantId])
+  @@map("webhook_receipts")
+}
+
+model Message {
+  id        String           @id @default(uuid()) @db.Uuid
+  tenantId  String           @map("tenant_id") @db.Uuid
+  sessionId String           @map("session_id") @db.Uuid
+  direction MessageDirection
+  channel   String
+  body      String
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  tenant  Tenant       @relation(fields: [tenantId], references: [id])
+  session AgentSession @relation(fields: [sessionId], references: [id])
+
+  @@index([tenantId, sessionId])
+  @@map("messages")
+}
+
+model InboxMessage {
+  id                String   @id @default(uuid()) @db.Uuid
+  tenantId          String   @map("tenant_id") @db.Uuid
+  provider          String
+  externalMessageId String   @map("external_message_id")
+  receivedAt        DateTime @default(now()) @map("received_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([provider, externalMessageId])
+  @@index([tenantId])
+  @@map("inbox_messages")
+}
+
+model IdempotencyRecord {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  scope     String
+  key       String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, scope, key])
+  @@map("idempotency_records")
+}
+
+model JobAttempt {
+  id           String         @id @default(uuid()) @db.Uuid
+  tenantId     String         @map("tenant_id") @db.Uuid
+  jobKey       String         @map("job_key")
+  attempt      Int
+  errorClass   JobErrorClass? @map("error_class")
+  errorMessage String?        @map("error_message")
+  startedAt    DateTime       @default(now()) @map("started_at")
+  finishedAt   DateTime?      @map("finished_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, jobKey])
+  @@map("job_attempts")
+}
+
+model DlqItem {
+  id            String        @id @default(uuid()) @db.Uuid
+  tenantId      String        @map("tenant_id") @db.Uuid
+  destination   String
+  eventId       String?       @map("event_id")
+  payload       Json
+  originalError String        @map("original_error")
+  errorClass    JobErrorClass @map("error_class")
+  status        DlqStatus     @default(OPEN)
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  tenant  Tenant      @relation(fields: [tenantId], references: [id])
+  replays DlqReplay[]
+
+  @@index([tenantId, status])
+  @@map("dlq_items")
+}
+
+model DlqReplay {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  dlqItemId  String   @map("dlq_item_id") @db.Uuid
+  replayedBy String   @map("replayed_by")
+  reason     String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id])
+  item   DlqItem @relation(fields: [dlqItemId], references: [id])
+
+  @@index([tenantId, dlqItemId])
+  @@map("dlq_replays")
+}

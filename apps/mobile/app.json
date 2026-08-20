@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "Itay Chai",
+    "slug": "itay-chai",
+    "scheme": "itaychai",
+    "version": "0.0.0",
+    "orientation": "portrait",
+    "ios": { "supportsTablet": true },
+    "android": { "adaptiveIcon": { "backgroundColor": "#ffffff" } }
+  }
+}

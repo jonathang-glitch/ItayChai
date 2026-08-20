@@ -1,0 +1,204 @@
+:root {
+  color: #1c1916;
+  background: #f4f0ea;
+  font-family: Assistant, 'Segoe UI', David, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button {
+  font: inherit;
+}
+
+.page {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 48px 24px 72px;
+}
+
+.hero h1,
+.steps h2,
+.stage h2,
+.tenants h3 {
+  font-weight: 600;
+}
+
+.hero h1 {
+  font-size: 40px;
+  line-height: 1.1;
+  margin: 8px 0 12px;
+}
+
+.eyebrow {
+  margin: 0;
+  color: #8a4b2f;
+  font-size: 15px;
+}
+
+.lede,
+.steps p,
+.stage p,
+.score {
+  color: #4a453f;
+  line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.actions button {
+  border: 0;
+  background: #1c1916;
+  color: #f4f0ea;
+  padding: 12px 20px;
+  cursor: pointer;
+}
+
+.actions button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.score {
+  margin: 0;
+}
+
+.error {
+  color: #8a1f1f;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.9fr);
+  gap: 40px;
+  margin-top: 48px;
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  gap: 16px;
+  padding: 16px 0;
+  border-top: 1px solid #d8d1c7;
+}
+
+.step h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+
+.step p {
+  margin: 0;
+}
+
+.step .index {
+  color: #8a4b2f;
+  padding-top: 3px;
+}
+
+.step strong {
+  font-size: 13px;
+  padding-top: 4px;
+}
+
+.step.pass strong {
+  color: #2f6b3a;
+}
+
+.step.fail strong,
+.step.fail .evidence {
+  color: #8a1f1f;
+}
+
+.step.active strong {
+  color: #8a4b2f;
+}
+
+.evidence {
+  margin-top: 8px !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: #6b645c;
+}
+
+.stage {
+  padding-top: 8px;
+}
+
+.stage h2,
+.tenants h3 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.bubble {
+  max-width: 90%;
+  margin: 0;
+  padding: 10px 12px;
+  line-height: 1.4;
+}
+
+.bubble.in {
+  background: #e7e0d6;
+  align-self: flex-start;
+}
+
+.bubble.out {
+  background: #1c1916;
+  color: #f4f0ea;
+  align-self: flex-end;
+}
+
+.caption {
+  font-size: 13px;
+}
+
+.tenants {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.tenants article {
+  border-top: 1px solid #d8d1c7;
+  padding-top: 12px;
+}
+
+.tenants p {
+  margin: 0;
+  font-size: 14px;
+}
+
+@media (max-width: 860px) {
+  .hero h1 {
+    font-size: 32px;
+  }
+
+  .layout,
+  .tenants {
+    grid-template-columns: 1fr;
+  }
+}

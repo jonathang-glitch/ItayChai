@@ -1,0 +1,10 @@
+node_modules
+.turbo
+.git
+.env
+apps/owner-web
+apps/ops-web
+apps/mobile
+infra
+docs
+**/*.md
