@@ -7,6 +7,10 @@ export const appPrisma = new PrismaClient({
   datasources: {
     db: { url: env.DATABASE_APP_URL ?? env.DATABASE_URL },
   },
+  transactionOptions: {
+    maxWait: 10_000,
+    timeout: 20_000,
+  },
 });
 
 export async function withTenantDb<T>(

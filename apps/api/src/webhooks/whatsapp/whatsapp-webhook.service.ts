@@ -158,5 +158,5 @@ async function createNew(
     });
 
     return { sessionId: session.id, message: MOCK_WHATSAPP_REPLY };
-  });
+  }, { maxWait: 10_000, timeout: 20_000 });
 }
