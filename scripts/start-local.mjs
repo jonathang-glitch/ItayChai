@@ -18,4 +18,4 @@ function run(command, args) {
 
 run('pnpm', ['infra:up']);
 run('pnpm', ['db:setup']);
-run('pnpm', ['dev']);
+run('pnpm', ['dev:local']);

@@ -1,6 +1,8 @@
 # Itay Chai
 
-Phase 1 walking skeleton plus Phase 2 identity and tenant isolation.
+Phases 1–3 plus a thin Phase 6 shift slice: אורי asks to change a shift, נועה sees it and decides.
+
+Progress against the 10-phase MVP plan: [docs/development-progress.md](docs/development-progress.md).
 
 ## What this step includes
 
@@ -113,10 +115,11 @@ pnpm test
 pnpm dev:web
 ```
 
-- Owner portal: http://localhost:5173
+- Local website (owner and customer): http://localhost:5173
+- Foundation demo: http://localhost:5173/demo
 - Operations console: http://localhost:5174
 
-Both pages call `GET /health` through the Vite proxy. They are status shells only.
+The local website signs in against the API. Open two browser tabs to use owner and customer at the same time.
 
 The mobile app is an Expo placeholder in `apps/mobile`. It is not part of the root workspace install. From that folder: `pnpm install && pnpm dev`.
 
@@ -125,6 +128,7 @@ The mobile app is an Expo placeholder in `apps/mobile`. It is not part of the ro
 Seeded users share the password `dev-password`:
 
 - `owner-a@example.com` — tenant A owner
+- `customer-a@example.com` — tenant A customer
 - `owner-b@example.com` — tenant B owner
 - `stakeholder-a@example.com` — tenant A read-only
 - `ops@example.com` — operations admin (MFA required for break-glass)

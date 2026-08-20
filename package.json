@@ -9,6 +9,7 @@
     "start:local": "node scripts/start-local.mjs",
     "postinstall": "pnpm db:generate",
     "dev": "turbo run dev --filter=@itay-chai/api --filter=@itay-chai/worker --filter=@itay-chai/outbox-relay",
+    "dev:local": "turbo run dev --filter=@itay-chai/api --filter=@itay-chai/worker --filter=@itay-chai/outbox-relay --filter=@itay-chai/owner-web",
     "dev:web": "turbo run dev --filter=@itay-chai/owner-web --filter=@itay-chai/ops-web",
     "infra:up": "supabase start && docker compose up -d redis",
     "infra:down": "docker compose down && supabase stop",

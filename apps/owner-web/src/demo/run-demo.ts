@@ -199,6 +199,45 @@ export async function runFoundationDemo(
   });
 }
 
+export type BusinessBProof = {
+  login: number;
+  readA: number;
+  readAMessage: string;
+  readOwn: number;
+  ownCount: number;
+  writeA: number;
+  aJobCount: number;
+  aJobId: string;
+  blocked: boolean;
+};
+
+export async function tryAsBusinessB(): Promise<BusinessBProof> {
+  const ownerB = await login(OWNER_B, SEED_PASSWORD);
+  const ownerA = await login(OWNER_A, SEED_PASSWORD);
+  const aSessions = await listSessions(ownerA.body.accessToken, TENANT_A);
+  const target = aSessions.body[0];
+  const readA = await listSessions(ownerB.body.accessToken, TENANT_A);
+  const readOwn = await listSessions(ownerB.body.accessToken, TENANT_B);
+  const writeA = target
+    ? await acknowledgeSession(ownerB.body.accessToken, TENANT_A, target.id)
+    : { status: 403, body: { message: 'no A session to touch' } };
+  const readAMessage =
+    typeof readA.body === 'object' && readA.body && 'message' in readA.body
+      ? String((readA.body as { message?: string }).message)
+      : '';
+  return {
+    login: ownerB.status,
+    readA: readA.status,
+    readAMessage,
+    readOwn: readOwn.status,
+    ownCount: Array.isArray(readOwn.body) ? readOwn.body.length : 0,
+    aJobCount: Array.isArray(aSessions.body) ? aSessions.body.length : 0,
+    aJobId: target?.id.slice(0, 8) ?? '',
+    writeA: writeA.status,
+    blocked: ownerB.status === 200 && readA.status === 403 && writeA.status === 403,
+  };
+}
+
 async function waitForDlq(token: string, eventId: string) {
   for (let attempt = 0; attempt < 30; attempt += 1) {
     const listed = await listDlq(token, TENANT_A);

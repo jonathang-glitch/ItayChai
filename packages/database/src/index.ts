@@ -19,9 +19,23 @@ export async function applyTenantRls(tenantId: string) {
 
 export { Prisma, SessionStatus, MessageDirection } from '@prisma/client';
 export type { Tenant, AgentSession, User } from '@prisma/client';
-export { seedIdentity, SEED_USERS, SEED_PASSWORD } from './seed-data.js';
+export { seedIdentity, resetClientInbox, SEED_USERS, SEED_PASSWORD } from './seed-data.js';
+export { SEED_SHIFTS, ORI_EMPLOYEE_ID, seedDemoShiftRequest } from './seed-roster.js';
 export { appPrisma, withTenantDb } from './tenant-db.js';
-export { findSessionsForTenant, findSessionForTenant, acknowledgeSession } from './sessions.js';
+export {
+  findSessionsForTenant,
+  findSessionForTenant,
+  findCustomerSessions,
+  acknowledgeSession,
+} from './sessions.js';
+export {
+  listMyShifts,
+  listShiftsForUser,
+  createShiftRequestForSession,
+  decideShiftRequest,
+  presentShift,
+} from './shifts.js';
+export type { ShiftDecisionAction } from './shifts.js';
 export {
   claimIdempotency,
   releaseIdempotency,

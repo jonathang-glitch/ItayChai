@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>איתי חי · טבלאות Docker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        margin: 0;
+        font-family: Assistant, sans-serif;
+        background: #efe6d8;
+        color: #1b1714;
+        padding: 28px 18px 72px;
+      }
+      main {
+        max-width: 960px;
+        margin: 0 auto;
+      }
+      a {
+        color: #8a4b2f;
+      }
+      h1 {
+        font-size: 32px;
+        margin: 8px 0 12px;
+      }
+      .meta {
+        color: #4f4943;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 8px 0 28px;
+        background: #f6efe6;
+        font-size: 13px;
+      }
+      th,
+      td {
+        border-top: 1px solid #d8cfc2;
+        padding: 8px 10px;
+        text-align: right;
+        vertical-align: top;
+      }
+      th {
+        color: #8a4b2f;
+      }
+      .err {
+        color: #8a1f1f;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p>איתי חי</p>
+      <h1>טבלאות ב-Docker על המק</h1>
+      <p class="meta">
+        ב-Docker Desktop לא רואים שורות. רואים רק מכולה.
+        חפשו <code>supabase_db_itay-chai</code> (המסד) ו-<code>itaychai-redis-1</code> (התור).
+        השורות עצמן מופיעות כאן, מתוך המכולה.
+      </p>
+      <p class="meta" id="meta">קורא מ-Postgres ב-Docker…</p>
+      <p><a href="/">חזרה להוכחה</a> · <a href="/look.html">כל קישורי הבדיקה</a></p>
+      <div id="root"></div>
+    </main>
+    <script>
+      const labels = {
+        agent_sessions: 'משימות',
+        messages: 'הודעות',
+        tenant_memberships: 'שייכות לעסק',
+        auth_sessions: 'כניסות',
+        dlq_items: 'כשלים בבידוד',
+        domain_events: 'אירועים',
+      };
+
+      fetch('/api/v1/demo/tables')
+        .then((r) => {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        })
+        .then((data) => {
+          document.getElementById('meta').textContent =
+            'נקרא חי מתוך המכולה supabase_db_itay-chai · ' + data.host;
+          const root = document.getElementById('root');
+          for (const [name, rows] of Object.entries(data.tables)) {
+            const wrap = document.createElement('section');
+            const title = document.createElement('h2');
+            title.textContent = (labels[name] || name) + ' · ' + name + ' · ' + rows.length;
+            wrap.appendChild(title);
+            if (!rows.length) {
+              const empty = document.createElement('p');
+              empty.textContent = 'אין שורות עדיין.';
+              wrap.appendChild(empty);
+              root.appendChild(wrap);
+              continue;
+            }
+            const table = document.createElement('table');
+            const keys = Object.keys(rows[0]);
+            const head = document.createElement('tr');
+            for (const key of keys) {
+              const th = document.createElement('th');
+              th.textContent = key;
+              head.appendChild(th);
+            }
+            table.appendChild(head);
+            for (const row of rows) {
+              const tr = document.createElement('tr');
+              for (const key of keys) {
+                const td = document.createElement('td');
+                const value = row[key];
+                td.textContent = value == null ? '' : String(value);
+                tr.appendChild(td);
+              }
+              table.appendChild(tr);
+            }
+            wrap.appendChild(table);
+            root.appendChild(wrap);
+          }
+        })
+        .catch(() => {
+          document.getElementById('meta').className = 'err';
+          document.getElementById('meta').textContent =
+            'השרת לא החזיר טבלאות. ודאו שה-API ו-Docker דולקים.';
+        });
+    </script>
+  </body>
+</html>

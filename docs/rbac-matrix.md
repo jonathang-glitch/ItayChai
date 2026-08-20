@@ -1,11 +1,12 @@
 # Tenancy and RBAC matrix
 
-| Role | Tenant scope | session.read | session.write | tenant.manage | ops.break_glass | ops.dlq | MFA |
-|---|---|---|---|---|---|---|---|
-| owner | own tenant | yes | yes | yes | no | no | no |
-| stakeholder | own tenant / own thread | yes | no | no | no | no | no |
-| ops_admin | selected tenant after grant | yes | yes | no | yes | yes | required |
-| service | job tenantId | yes | yes | no | no | no | n/a |
+| Role | Tenant scope | session.read | session.write | tenant.manage | customer.write | ops.break_glass | ops.dlq | MFA |
+|---|---|---|---|---|---|---|---|---|
+| owner | own tenant | yes | yes | yes | no | no | no | no |
+| stakeholder | own tenant / own thread | yes | no | no | no | no | no | no |
+| customer | own tenant / own requests | no | no | no | yes | no | no | no |
+| ops_admin | selected tenant after grant | yes | yes | no | no | yes | yes | required |
+| service | job tenantId | yes | yes | no | no | no | no | n/a |
 
 Rules:
 

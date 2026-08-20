@@ -1,0 +1,734 @@
+:root {
+  --ink: #14110e;
+  --paper: #f3ece2;
+  --cream: #fffaf3;
+  --line: #e4d8c8;
+  --mute: #6d645b;
+  --clay: #c45c32;
+  --leaf: #2c6b48;
+  --sand: #e8d3b0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background: var(--paper);
+  font-family: Heebo, Assistant, 'Segoe UI', sans-serif;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.signin,
+.app {
+  min-height: 100vh;
+}
+
+.signin {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 460px);
+  gap: 48px;
+  align-items: center;
+  padding: 48px 7vw;
+  overflow: hidden;
+  background: #100e0c;
+  color: #f6efe6;
+}
+
+.signin-glow {
+  position: absolute;
+  inset: auto -10% 10% 30%;
+  width: 520px;
+  height: 520px;
+  background: radial-gradient(circle, #c45c3255, transparent 68%);
+  pointer-events: none;
+}
+
+.signin-story,
+.signin-card {
+  position: relative;
+}
+
+.brand-mark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 28px;
+  letter-spacing: 0.08em;
+  font-size: 13px;
+}
+
+.brand-mark span,
+.avatar {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.brand-mark span {
+  width: 36px;
+  height: 36px;
+  background: var(--clay);
+  color: #fffaf3;
+  font-weight: 700;
+}
+
+.brand-mark.small {
+  margin: 0;
+}
+
+.brand-mark.small span {
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+}
+
+.kicker,
+.card-kicker {
+  margin: 0 0 10px;
+  color: #c9b8a6;
+  letter-spacing: 0.08em;
+  font-size: 13px;
+}
+
+.signin h1 {
+  margin: 0 0 16px;
+  font-family: 'Frank Ruhl Libre', 'Times New Roman', serif;
+  font-size: clamp(44px, 6vw, 72px);
+  line-height: 1.05;
+  font-weight: 500;
+}
+
+.lede {
+  max-width: 28ch;
+  color: #d8cbbd;
+  line-height: 1.65;
+  font-size: 18px;
+}
+
+.signin-card {
+  background: var(--cream);
+  color: var(--ink);
+  padding: 28px 26px 30px;
+  border-radius: 28px;
+  box-shadow: 0 30px 80px #00000055;
+}
+
+.people {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.people button,
+.row,
+.composer,
+.topbar,
+.who,
+.panel header,
+.chat-head,
+.filters {
+  display: flex;
+}
+
+.people button,
+.row {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: #fff;
+  text-align: start;
+  cursor: pointer;
+}
+
+.people button {
+  align-items: center;
+  gap: 12px;
+  padding: 14px 14px 14px 12px;
+  border-radius: 18px;
+}
+
+.people button:hover,
+.row:hover {
+  border-color: var(--ink);
+}
+
+.people button:disabled,
+.primary:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.avatar {
+  width: 44px;
+  height: 44px;
+  font-weight: 600;
+}
+
+.avatar.owner,
+.avatar.tiny {
+  background: #1d3b2d;
+  color: #e8f3ea;
+}
+
+.avatar.customer {
+  background: #f0d4bf;
+  color: #7a3b1d;
+}
+
+.avatar.tiny {
+  width: 32px;
+  height: 32px;
+  font-size: 13px;
+}
+
+.people strong,
+.who strong,
+.chat-head strong,
+.row-top strong {
+  display: block;
+}
+
+.people em,
+.who em,
+.chat-head em,
+.row p,
+.row-foot i,
+.empty,
+.note,
+.hello,
+.waiting {
+  color: var(--mute);
+  font-style: normal;
+}
+
+.people em,
+.who em,
+.chat-head em {
+  font-size: 13px;
+}
+
+.people b {
+  margin-inline-start: auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--clay);
+}
+
+.signin-card form,
+.signin-card label,
+.signin-card input {
+  display: block;
+  width: 100%;
+}
+
+.signin-card label {
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--mute);
+}
+
+.signin-card input,
+.composer input {
+  margin-top: 6px;
+  border: 1px solid var(--line);
+  background: #fff;
+  padding: 12px 14px;
+  border-radius: 12px;
+}
+
+.primary,
+.text-btn,
+.filters button {
+  cursor: pointer;
+}
+
+.primary {
+  border: 0;
+  background: var(--ink);
+  color: var(--cream);
+  padding: 13px 18px;
+  border-radius: 12px;
+}
+
+.error {
+  color: #8a1f1f;
+}
+
+.app {
+  background:
+    radial-gradient(800px 320px at 100% 0, #f7e7d4, transparent 55%),
+    var(--paper);
+}
+
+.topbar {
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 28px;
+}
+
+.who {
+  align-items: center;
+  gap: 12px;
+}
+
+.who p,
+.chat-head div {
+  margin: 0;
+  text-align: start;
+}
+
+.text-btn,
+.filters button {
+  border: 0;
+  background: transparent;
+  color: var(--mute);
+}
+
+.workspace,
+.chat-shell {
+  padding: 0 28px 48px;
+}
+
+.phone-card,
+.panel,
+.row,
+.case-card {
+  background: var(--cream);
+  border: 1px solid var(--line);
+}
+
+.owner-desk {
+  max-width: 560px;
+  margin-inline: auto;
+}
+
+.queue {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 16px;
+}
+
+.case-card {
+  padding: 18px;
+  border-radius: 24px;
+  box-shadow: 0 16px 40px #14110e0d;
+}
+
+.case-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.case-head div {
+  flex: 1;
+  min-width: 0;
+}
+
+.case-head strong {
+  display: block;
+  font-size: 18px;
+}
+
+.case-head div em,
+.case-head div p {
+  display: block;
+  margin: 4px 0 0;
+  font-style: normal;
+  color: var(--mute);
+  font-size: 14px;
+}
+
+.case-meta {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.case-card .thread {
+  margin-top: 16px;
+}
+
+.filters {
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.owner-desk .filters {
+  justify-content: center;
+  padding: 6px;
+  border-radius: 16px;
+  background: #efe6d8;
+}
+
+.owner-desk .filters button {
+  padding: 8px 14px;
+  border-radius: 12px;
+}
+
+.owner-desk .filters .on {
+  background: #fff;
+  color: var(--ink);
+}
+
+.filters .on,
+.text-btn:hover {
+  color: var(--ink);
+}
+
+.inbox,
+.thread {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.row {
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 18px;
+  margin-bottom: 8px;
+}
+
+.row.on {
+  border-color: var(--ink);
+  box-shadow: 0 10px 30px #14110e10;
+}
+
+.row-top,
+.row-foot,
+.panel header {
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.row p,
+.empty,
+.note,
+.hello,
+.waiting {
+  margin: 0;
+  font-size: 14px;
+}
+
+.row-foot {
+  margin-top: 4px;
+}
+
+.row-foot i {
+  font-size: 12px;
+  margin-inline-start: 8px;
+}
+
+.pill {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #efe4d4;
+  font-size: 12px;
+}
+
+.pill.completed {
+  background: #dceadf;
+  color: var(--leaf);
+}
+
+.pill.draft {
+  background: #f3d9c8;
+  color: #8a3d1d;
+}
+
+.panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 20px;
+  border-radius: 24px;
+}
+
+.panel h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.panel header p,
+.note {
+  margin: 4px 0 0;
+}
+
+.note {
+  margin: 10px 0 0;
+}
+
+.empty-panel {
+  align-items: center;
+  justify-content: center;
+}
+
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.bubble {
+  max-width: 78%;
+  padding: 11px 13px;
+  border-radius: 16px;
+}
+
+.bubble p,
+.bubble time {
+  margin: 0;
+}
+
+.bubble time {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.bubble.theirs {
+  align-self: end;
+  background: #efe6d8;
+}
+
+.bubble.mine {
+  align-self: start;
+  background: #1d3b2d;
+  color: #f3f7f2;
+}
+
+.customer-app .chat-shell {
+  display: grid;
+  place-items: start center;
+  padding-top: 8px;
+}
+
+.phone-card {
+  width: min(460px, 100%);
+  min-height: 70vh;
+  border-radius: 28px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 60px #14110e14;
+}
+
+.chat-head {
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.chat-body {
+  flex: 1;
+  padding: 18px;
+}
+
+.hello,
+.waiting {
+  margin-bottom: 14px;
+}
+
+.composer {
+  gap: 8px;
+  padding: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.composer input {
+  flex: 1;
+  margin-top: 0;
+}
+
+.shift-composer {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  padding: 16px 18px 20px;
+  background: #f7f1e8;
+  border-top: 1px solid var(--line);
+}
+
+.shift-kicker {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.shift-picks {
+  display: grid;
+  gap: 8px;
+}
+
+.shift-picks button,
+.shift-card {
+  text-align: start;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 18px;
+  padding: 14px 16px;
+}
+
+.shift-picks button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  cursor: pointer;
+}
+
+.shift-picks button.on {
+  border-color: var(--leaf);
+  background: #eef5f0;
+  box-shadow: 0 0 0 3px #2c6b4818;
+}
+
+.shift-picks button strong {
+  display: block;
+  font-size: 16px;
+}
+
+.shift-picks button b {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  background: #fff;
+  color: transparent;
+  font-size: 0;
+}
+
+.shift-picks button.on b {
+  border-color: var(--leaf);
+  background: var(--leaf);
+  box-shadow: inset 0 0 0 3px #fff;
+}
+
+.shift-picks em,
+.shift-card p {
+  display: block;
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--mute);
+}
+
+.send-shift {
+  width: 100%;
+  background: var(--leaf);
+  font-weight: 600;
+}
+
+.phone-card .error {
+  margin: 0 18px 16px;
+}
+
+.composer-row {
+  display: flex;
+  gap: 8px;
+}
+
+.shift-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.shift-actions button {
+  border: 0;
+  padding: 14px 12px;
+  border-radius: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.shift-actions .approve {
+  background: var(--leaf);
+  color: #fff;
+}
+
+.shift-actions .reject {
+  background: #f3d9c8;
+  color: #8a3d1d;
+}
+
+.shift-actions .cover {
+  grid-column: 1 / -1;
+  background: var(--ink);
+  color: var(--cream);
+}
+
+.shift-actions button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.pill.open,
+.pill.draft {
+  background: #f3d9c8;
+  color: #8a3d1d;
+}
+
+.pill.approved {
+  background: #dceadf;
+  color: var(--leaf);
+}
+
+.pill.rejected,
+.pill.failed {
+  background: #f3d4d0;
+  color: #8a1f1f;
+}
+
+.pill.needs_replacement {
+  background: #efe4d4;
+  color: #6d4b1d;
+}
+
+@media (max-width: 860px) {
+  .signin,
+  .who em {
+    display: block;
+  }
+
+  .signin {
+    padding: 36px 20px 48px;
+  }
+
+  .phone-card {
+    flex: none;
+    width: 100%;
+  }
+
+  .workspace,
+  .chat-shell,
+  .topbar {
+    padding-inline: 16px;
+  }
+}

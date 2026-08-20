@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>איתי חי · קישורים לבדיקה</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        margin: 0;
+        font-family: Assistant, sans-serif;
+        background: #efe6d8;
+        color: #1b1714;
+        padding: 32px 20px 64px;
+      }
+      main {
+        max-width: 720px;
+        margin: 0 auto;
+      }
+      a {
+        color: #8a4b2f;
+      }
+      pre {
+        background: #1b1714;
+        color: #f6efe6;
+        padding: 12px 14px;
+        overflow: auto;
+      }
+      li {
+        margin: 10px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p>איתי חי · לא מצגת</p>
+      <h1>קישורים שאפשר לפתוח מול לקוח ספקן</h1>
+      <p>כל קישור רץ על המק הזה. אם דף לא נפתח — השירות כבוי.</p>
+      <pre id="health">טוען דופק מהשרת…</pre>
+      <h2>לפתוח עכשיו</h2>
+      <ol>
+        <li><a href="http://127.0.0.1:3000/health">JSON של השרת</a> — חייב להיות ok / database up</li>
+        <li><a href="http://127.0.0.1:5173/tables.html">טבלאות ב-Docker</a></li>
+        <li><a href="http://127.0.0.1:5173/">כניסה כבעל עסק או לקוח</a></li>
+        <li><a href="http://127.0.0.1:5173/demo">מסך ההוכחה</a></li>
+        <li><a href="http://127.0.0.1:5174/">קונסולת תפעול</a></li>
+      </ol>
+      <h2>איפה לחפש ב-Docker אחרי ההרצה</h2>
+      <ol>
+        <li><strong>auth_sessions</strong> — כניסות של שני העסקים</li>
+        <li><strong>tenant_memberships</strong> — מי שייך לאיזה עסק</li>
+        <li><strong>agent_sessions</strong> — המשימה מואטסאפ, סטטוס COMPLETED</li>
+        <li><strong>messages</strong> — נכנס / יצא</li>
+        <li><strong>domain_events</strong> + <strong>outbox_messages</strong> — אירוע אחד שפורסם</li>
+        <li><strong>dlq_items</strong> + <strong>dlq_replays</strong> — כשל גלוי ושחזור</li>
+        <li><strong>break_glass_grants</strong> — חייב להישאר בלי grant חדש מההדגמה</li>
+      </ol>
+      <h2>על המחשב הזה</h2>
+      <p>תיקייה <code>/Users/jonathangad/ItayChai</code></p>
+      <p>Docker Postgres <code>127.0.0.1:54322</code> · Docker Redis <code>127.0.0.1:6379</code></p>
+    </main>
+    <script>
+      fetch('/health')
+        .then((r) => r.text())
+        .then((text) => {
+          document.getElementById('health').textContent = text;
+        })
+        .catch(() => {
+          document.getElementById('health').textContent = 'השרת לא ענה. הפעילו את ה-API.';
+        });
+    </script>
+  </body>
+</html>

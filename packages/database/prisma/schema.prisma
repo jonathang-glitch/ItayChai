@@ -45,6 +45,13 @@ enum DlqStatus {
   REPLAYED
 }
 
+enum ShiftSwapStatus {
+  OPEN
+  APPROVED
+  REJECTED
+  NEEDS_REPLACEMENT
+}
+
 model Tenant {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
@@ -64,11 +71,14 @@ model Tenant {
   identities       StakeholderIdentity[]
   breakGlassGrants BreakGlassGrant[]
   invitations      Invitation[]
-  inboxMessages    InboxMessage[]
-  idempotencyKeys  IdempotencyRecord[]
-  jobAttempts      JobAttempt[]
-  dlqItems         DlqItem[]
-  dlqReplays       DlqReplay[]
+  inboxMessages      InboxMessage[]
+  idempotencyKeys    IdempotencyRecord[]
+  jobAttempts        JobAttempt[]
+  dlqItems           DlqItem[]
+  dlqReplays         DlqReplay[]
+  employees          Employee[]
+  shifts             Shift[]
+  shiftSwapRequests  ShiftSwapRequest[]
 
   @@map("tenants")
 }
@@ -85,6 +95,8 @@ model BusinessUnit {
   tenant      Tenant              @relation(fields: [tenantId], references: [id])
   memberships TenantMembership[]
   sessions    AgentSession[]
+  employees   Employee[]
+  shifts      Shift[]
 
   @@index([tenantId, id])
   @@map("business_units")
@@ -94,6 +106,7 @@ model User {
   id           String   @id @default(uuid()) @db.Uuid
   authSubject  String   @unique @map("auth_subject")
   email        String?  @unique
+  name         String?
   passwordHash String?  @map("password_hash")
   phone        String?
   locale       String   @default("he-IL")
@@ -102,11 +115,14 @@ model User {
   mfaEnabled   Boolean  @default(false) @map("mfa_enabled")
   createdAt    DateTime @default(now()) @map("created_at")
 
-  memberships  TenantMembership[]
-  devices      UserDevice[]
-  identities   StakeholderIdentity[]
-  authSessions AuthSession[]
-  resetTokens  PasswordResetToken[]
+  memberships       TenantMembership[]
+  devices           UserDevice[]
+  identities        StakeholderIdentity[]
+  authSessions      AuthSession[]
+  resetTokens       PasswordResetToken[]
+  customerSessions  AgentSession[]
+  employeeRecords   Employee[]
+  shiftDecisions    ShiftSwapRequest[]   @relation("ShiftDecisionActor")
 
   @@map("users")
 }
@@ -252,6 +268,7 @@ model AgentSession {
   id                String        @id @default(uuid()) @db.Uuid
   tenantId          String        @map("tenant_id") @db.Uuid
   businessUnitId    String?       @map("business_unit_id") @db.Uuid
+  customerUserId    String?       @map("customer_user_id") @db.Uuid
   status            SessionStatus @default(DRAFT)
   version           Int           @default(0)
   externalMessageId String        @map("external_message_id")
@@ -260,12 +277,15 @@ model AgentSession {
 
   tenant       Tenant        @relation(fields: [tenantId], references: [id])
   businessUnit BusinessUnit? @relation(fields: [businessUnitId], references: [id])
+  customer     User?         @relation(fields: [customerUserId], references: [id])
   transitions  SessionTransition[]
   messages     Message[]
+  shiftRequest ShiftSwapRequest?
 
   @@unique([tenantId, externalMessageId])
   @@index([tenantId, status])
   @@index([tenantId, id])
+  @@index([tenantId, customerUserId])
   @@map("agent_sessions")
 }
 
@@ -442,4 +462,65 @@ model DlqReplay {
 
   @@index([tenantId, dlqItemId])
   @@map("dlq_replays")
+}
+
+model Employee {
+  id             String   @id @default(uuid()) @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  businessUnitId String   @map("business_unit_id") @db.Uuid
+  userId         String?  @map("user_id") @db.Uuid
+  displayName    String   @map("display_name")
+  roleLabel      String   @map("role_label")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  tenant       Tenant             @relation(fields: [tenantId], references: [id])
+  businessUnit BusinessUnit       @relation(fields: [businessUnitId], references: [id])
+  user         User?              @relation(fields: [userId], references: [id])
+  shifts       Shift[]
+  swapRequests ShiftSwapRequest[]
+
+  @@unique([tenantId, userId])
+  @@index([tenantId, businessUnitId])
+  @@map("employees")
+}
+
+model Shift {
+  id             String   @id @default(uuid()) @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  businessUnitId String   @map("business_unit_id") @db.Uuid
+  employeeId     String   @map("employee_id") @db.Uuid
+  label          String
+  startsAt       DateTime @map("starts_at")
+  endsAt         DateTime @map("ends_at")
+
+  tenant       Tenant             @relation(fields: [tenantId], references: [id])
+  businessUnit BusinessUnit       @relation(fields: [businessUnitId], references: [id])
+  employee     Employee           @relation(fields: [employeeId], references: [id])
+  swapRequests ShiftSwapRequest[]
+
+  @@index([tenantId, employeeId])
+  @@map("shifts")
+}
+
+model ShiftSwapRequest {
+  id               String          @id @default(uuid()) @db.Uuid
+  tenantId         String          @map("tenant_id") @db.Uuid
+  sessionId        String          @unique @map("session_id") @db.Uuid
+  employeeId       String          @map("employee_id") @db.Uuid
+  shiftId          String?         @map("shift_id") @db.Uuid
+  intentText       String          @map("intent_text")
+  requestedLabel   String          @map("requested_label")
+  status           ShiftSwapStatus @default(OPEN)
+  decidedByUserId  String?         @map("decided_by_user_id") @db.Uuid
+  decidedAt        DateTime?       @map("decided_at")
+  createdAt        DateTime        @default(now()) @map("created_at")
+
+  tenant    Tenant        @relation(fields: [tenantId], references: [id])
+  session   AgentSession  @relation(fields: [sessionId], references: [id])
+  employee  Employee      @relation(fields: [employeeId], references: [id])
+  shift     Shift?        @relation(fields: [shiftId], references: [id])
+  decidedBy User?         @relation("ShiftDecisionActor", fields: [decidedByUserId], references: [id])
+
+  @@index([tenantId, status])
+  @@map("shift_swap_requests")
 }

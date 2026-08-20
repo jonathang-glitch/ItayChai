@@ -15,14 +15,25 @@ export type IngestResult = {
   message: string;
 };
 
-export async function ingestMockWhatsApp(input: MockWhatsAppWebhook): Promise<IngestResult> {
+export type IngestOptions = {
+  tenantId?: string;
+  customerUserId?: string;
+  businessUnitId?: string;
+};
+
+export async function ingestMockWhatsApp(
+  input: MockWhatsAppWebhook,
+  options: IngestOptions | string = {},
+): Promise<IngestResult> {
+  const opts = typeof options === 'string' ? { tenantId: options } : options;
+  const tenantId = opts.tenantId ?? DEV_TENANT_ID;
   const existing = await findExisting(input.externalMessageId);
   if (existing) {
     return existing;
   }
 
   try {
-    return await createNew(input);
+    return await createNew(input, { ...opts, tenantId });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       const duplicate = await findExisting(input.externalMessageId);
@@ -52,8 +63,11 @@ async function findExisting(externalMessageId: string): Promise<IngestResult | n
   return { sessionId: session.id, message: MOCK_WHATSAPP_REPLY };
 }
 
-async function createNew(input: MockWhatsAppWebhook): Promise<IngestResult> {
-  const tenantId = DEV_TENANT_ID;
+async function createNew(
+  input: MockWhatsAppWebhook,
+  options: IngestOptions & { tenantId: string },
+): Promise<IngestResult> {
+  const { tenantId, customerUserId, businessUnitId } = options;
   const correlationId = randomUUID();
 
   return prisma.$transaction(async (tx) => {
@@ -78,6 +92,8 @@ async function createNew(input: MockWhatsAppWebhook): Promise<IngestResult> {
         status: 'DRAFT',
         version: 0,
         externalMessageId: input.externalMessageId,
+        ...(customerUserId ? { customerUserId } : {}),
+        ...(businessUnitId ? { businessUnitId } : {}),
       },
     });
 
@@ -88,6 +104,15 @@ async function createNew(input: MockWhatsAppWebhook): Promise<IngestResult> {
         direction: 'INBOUND',
         channel: WHATSAPP_PROVIDER,
         body: input.text ?? '',
+      },
+    });
+    await tx.message.create({
+      data: {
+        tenantId,
+        sessionId: session.id,
+        direction: 'OUTBOUND',
+        channel: WHATSAPP_PROVIDER,
+        body: MOCK_WHATSAPP_REPLY,
       },
     });
 

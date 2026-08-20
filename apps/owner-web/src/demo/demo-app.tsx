@@ -1,15 +1,41 @@
-import { useState } from 'react';
-import { COPY, STEPS } from './copy';
-import { runFoundationDemo, type DemoStepResult } from './run-demo';
+import { useEffect, useState } from 'react';
+import '../styles.css';
+import { CHAPTERS, COPY, STEPS } from './copy';
+import { PREVIEW } from './explain';
+import { ProofStage } from './proof-stage';
+import { StepDetail } from './step-detail';
+import { runFoundationDemo, tryAsBusinessB, type BusinessBProof, type DemoStepResult } from './run-demo';
 
 export function DemoApp() {
   const [results, setResults] = useState<DemoStepResult[]>([]);
   const [running, setRunning] = useState(false);
+  const [asB, setAsB] = useState(false);
+  const [proof, setProof] = useState<BusinessBProof | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const whatsapp = results.find((item) => item.id === 'whatsapp' && item.ok);
-  const eventOk = results.find((item) => item.id === 'event' && item.ok);
-  const dlqOk = results.find((item) => item.id === 'dlq' && item.ok);
-  const replayOk = results.find((item) => item.id === 'replay' && item.ok);
+  const [live, setLive] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function ping() {
+      try {
+        const response = await fetch('/health');
+        const body = (await response.json()) as { ok?: boolean; database?: string };
+        if (!cancelled) {
+          setLive(response.ok && body.ok === true && body.database === 'up');
+        }
+      } catch {
+        if (!cancelled) {
+          setLive(false);
+        }
+      }
+    }
+    void ping();
+    const timer = setInterval(() => void ping(), 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, []);
 
   async function start() {
     setRunning(true);
@@ -26,76 +52,85 @@ export function DemoApp() {
     }
   }
 
+  async function enterAsB() {
+    setAsB(true);
+    setError(null);
+    try {
+      setProof(await tryAsBusinessB());
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : COPY.stopped);
+    } finally {
+      setAsB(false);
+    }
+  }
+
   const passed = results.filter((item) => item.ok).length;
   const done = !running && results.length > 0 && !error;
+  const busy = running || asB;
 
   return (
     <main className="page">
       <header className="hero">
-        <p className="eyebrow">איתי חי</p>
+        <div className="hero-top">
+          <p className="eyebrow">{COPY.brand}</p>
+          <p className={`live ${live ? 'on' : live === false ? 'off' : ''}`}>
+            <span />
+            {live ? COPY.liveOn : live === false ? COPY.liveOff : '…'}
+          </p>
+        </div>
         <h1>{COPY.title}</h1>
         <p className="lede">{COPY.lede}</p>
         <div className="actions">
-          <button type="button" onClick={() => void start()} disabled={running}>
+          <button type="button" onClick={() => void start()} disabled={busy}>
             {running ? COPY.running : COPY.run}
           </button>
+          <button type="button" className="secondary" disabled={busy} onClick={() => void enterAsB()}>
+            {asB ? COPY.beBRunning : COPY.beB}
+          </button>
+          <a className="secondary" href={PREVIEW.editor} target="_blank" rel="noreferrer">
+            {COPY.tables}
+          </a>
+          <a className="look" href={PREVIEW.look} target="_blank" rel="noreferrer">
+            {COPY.look}
+          </a>
           {done ? <p className="score">{COPY.score(passed, STEPS.length)}</p> : null}
         </div>
         {error ? <p className="error">{error}</p> : null}
       </header>
 
       <section className="layout">
-        <ol className="steps">
-          {STEPS.map((step, index) => {
-            const result = results.find((item) => item.id === step.id);
-            return (
-              <li key={step.id} className={tone(result, running && results.length === index)}>
-                <span className="index">{index + 1}</span>
-                <div>
-                  <h2>{step.title}</h2>
-                  {result ? <p>{result.story}</p> : null}
-                  {result ? <p className="evidence">{result.evidence}</p> : null}
-                </div>
-                <strong>{label(result, running && results.length === index)}</strong>
-              </li>
-            );
-          })}
+        <ol className="chapters">
+          {CHAPTERS.map((chapter) => (
+            <li key={chapter.title} className="chapter">
+              <h2>{chapter.title}</h2>
+              <ol>
+                {chapter.ids.map((id) => {
+                  const step = STEPS.find((item) => item.id === id);
+                  const result = results.find((item) => item.id === id);
+                  const index = STEPS.findIndex((item) => item.id === id);
+                  const active = running && results.length === index;
+                  return (
+                    <li key={id} className={tone(result, active)}>
+                      <div>
+                        <h3>{step?.title}</h3>
+                        {result ? <p>{result.story}</p> : null}
+                        <StepDetail
+                          id={id}
+                          {...(result ? { result } : {})}
+                          {...(id === 'whatsapp' && result?.session
+                            ? { extra: `מזהה מלא לחיפוש בטבלאות Docker: ${result.session.id}` }
+                            : {})}
+                        />
+                      </div>
+                      <strong>{label(result, active)}</strong>
+                    </li>
+                  );
+                })}
+              </ol>
+            </li>
+          ))}
         </ol>
-
-        <aside className="stage">
-          <h2>{COPY.customerSees}</h2>
-          {whatsapp ? (
-            <div className="chat">
-              <p className="bubble in">{COPY.inbound}</p>
-              <p className="bubble out">{COPY.outbound}</p>
-              <p className="caption">
-                {COPY.job(whatsapp.session?.id.slice(0, 8) ?? '', COPY.completed)}
-              </p>
-            </div>
-          ) : (
-            <p className="caption">{COPY.chatWaiting}</p>
-          )}
-          <div className="tenants">
-            <article>
-              <h3>{COPY.businessA}</h3>
-              <p>{tenantLine(results, 'A')}</p>
-            </article>
-            <article>
-              <h3>{COPY.businessB}</h3>
-              <p>{tenantLine(results, 'B')}</p>
-            </article>
-          </div>
-          <div className="tenants reliability">
-            <article>
-              <h3>אמינות</h3>
-              <p>
-                {eventOk ? COPY.eventOne : COPY.reliabilityWaiting}
-                {dlqOk ? ` · ${COPY.failureVisible}` : ''}
-                {replayOk ? ` · ${COPY.replayed}` : ''}
-              </p>
-            </article>
-          </div>
-        </aside>
+        <ProofStage results={results} proof={proof} />
       </section>
     </main>
   );
@@ -119,12 +154,4 @@ function label(result: DemoStepResult | undefined, active: boolean) {
     return COPY.failed;
   }
   return active ? COPY.runningStep : COPY.waiting;
-}
-
-function tenantLine(results: DemoStepResult[], side: 'A' | 'B') {
-  const read = results.find((item) => item.id === 'isolation-read');
-  if (!read) {
-    return COPY.tenantWaiting;
-  }
-  return side === 'A' ? COPY.tenantA : COPY.tenantB;
 }

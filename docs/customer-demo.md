@@ -1,108 +1,122 @@
-# Phase 3 — simple talking guide
+# פגישה הבאה — הדגמת החלפת משמרת
 
-Open [http://localhost:5173](http://localhost:5173) and click **הרצת הדגמה חיה**.  
-Read the screen from top to bottom. Say the lines below.
+פותחים [http://localhost:5173](http://localhost:5173).  
+אין טופס אימייל. רק שני כפתורים: **נועה** ו**אורי**.
 
----
-
-## What this phase is, in regular words
-
-Phases 1 and 2 proved the house exists: the system is on, two businesses can log in, and one cannot see the other.
-
-Phase 3 answers a different question:
-
-**If something goes wrong in the middle of work, does the job disappear?**
-
-When a real customer later writes on WhatsApp “swap my shift” or “order milk”, the system must not lose that request, must not do it twice, and must not fail quietly. Phase 3 is that safety net. There is still no live AI agent and no real WhatsApp.
-
-Think of a restaurant ticket:
-
-1. The order is written down. That is the incoming message.
-2. The ticket goes to the kitchen. That is the job queue.
-3. If the kitchen drops the ticket, it does not vanish. It sits in a visible “failed” pile with a reason.
-4. A manager can send it back to the kitchen, and that action is written down.
-
-That is all Phase 3 is.
+הסיפור שמראים: עובד מבקש להחליף משמרת. בעלת העסק מאשרת. המשמרת נעלמת אצל העובד.
 
 ---
 
-## What is new vs what you already showed
+## מה אומרים לפני שלוחצים
 
-Already shown (phases 1–2):
+עד עכשיו הראינו שיש מערכת חיה, ושני עסקים לא רואים אחד את השני, ושבקשה לא נעלמת.
 
-- The system is running.
-- Two businesses log in separately.
-- A WhatsApp-style message creates one task and one reply.
-- The same message twice still makes one task.
-- Business A cannot see or change Business B.
-- The internal team cannot open a back door without a written reason.
+הפעם מראים דבר שהבעלים יכול להבין ביד:
 
-New in this phase (steps 8–10):
+**אורי לוחץ על משמרת. נועה מאשרת. אצל אורי המשמרת כבר לא קיימת.**
 
-- Every finished task leaves a paper trail: one event, then it was sent to the workers.
-- We deliberately break a task. It does not disappear. You can see it and read why it failed.
-- The team can retry that task, only with a written reason, and that retry is recorded.
+זה עדיין לא WhatsApp אמיתי ולא סוכן שמחליף לבד. זו הפעם הראשונה שהבקשה וההחלטה נשמרות במסד הנתונים ומשנות את לוח המשמרות.
 
 ---
 
-## What to say on each step
+## הזרימה המדויקת על המסך
 
-**1. The system is alive**  
-You see the server and the database answer.  
-Say: “Before AI, we prove there is a real system running.”
+### 1. נכנסים כאורי
 
-**2. Two businesses log in**  
-Business A and Business B each get their own login.  
-Say: “This is a platform. Each of your customers is a separate business.”
+לוחצים על **אורי**.
 
-**3. A WhatsApp message**  
-The customer writes «צריך החלפת משמרת». The system answers «הבקשה התקבלה».  
-Say: “This is how every action will start. A message comes in, one task is created, there is a reply, and it is recorded.”
+אומרים: «זה העובד. הוא רואה רק את המשמרות שלו.»
 
-**4. The same message again**  
-The same message arrives a second time. Still one task.  
-Say: “WhatsApp sometimes sends twice. Without this you would get a double shift, a double order, or a double payment.”
+על המסך: חמש משמרות. בלי שדה טקסט. בלי «למה צריך החלפה».
 
-**5. One business cannot see another**  
-Business A sees only itself. Business B is blocked.  
-Say: “This is the condition for selling to more than one customer.”
+### 2. אורי בוחר משמרת
 
-**6. One business cannot change another**  
-Business B cannot touch A’s task. A stakeholder can look, not change.  
-Say: “Hiding data is not enough. A forbidden action is also blocked.”
+לוחצים על משמרת אחת, למשל **בוקר שישי**.
 
-**7. No quiet back door**  
-The business owner cannot open staff access. Operations must write a reason.  
-Say: “When we step in to help, it is not silent.”
+מיד מופיעות שתי הודעות:
 
-**8. Every change leaves one trail** *(new)*  
-The finished task is saved as one event and sent to the workers.  
-Say: “Nothing changes in the database without a trace. That is how we do not lose work.”
+- מאורי: «צריך החלפה בבוקר שישי»
+- מהחנות: «הבקשה התקבלה.»
 
-**9. A failure stays visible** *(new)*  
-We send a task that fails on purpose. It goes into a holding area.  
-Say: “A failure does not vanish. We can see it, read the reason, and decide what to do.”
+אומרים: «הוא לא כותב כלום. לחיצה אחת שולחת בקשה לנועה.»
 
-**10. We can retry it, on the record** *(new)*  
-Operations retries it with a written reason. The task continues.  
-Say: “There is no silent fix. There is an approval, a reason, and a record.”
+### 3. יוצאים ונכנסים כנועה
 
----
+לוחצים **יציאה**, אחר כך **נועה**.
 
-## Why this phase exists
+אומרים: «זו בעלת החנות. היא רואה פניות, לא רשימת משמרות.»
 
-Later the system will actually swap shifts, open maintenance tickets, and order supplies. Those are real actions in a real business.
+בלשונית **פתוחות** יש כרטיס אחד: אורי, שם המשמרת, השעה, כפתורים אשר / דחה / צריך מחליף.
 
-If a request can get lost, run twice, or fail with nobody noticing, we cannot put an agent on WhatsApp.
+### 4. נועה מאשרת
 
-This phase is the rule: **one request, one handling, one business, a visible failure, a recorded retry.**
+לוחצים **אשר**.
 
-Next phases build on this: real WhatsApp, the shift agent, the caretaker agent, procurement, and the real owner screens.
+הכרטיס כבר לא «ממתינה». בשיחה נכתב **«הבקשה אושרה.»**  
+הפנייה עוברת ל־**טופלו**.
+
+אומרים: «לחיצה אחת. זה נשמר. לא רק על המסך.»
+
+### 5. חוזרים לאורי — המשמרת נעלמה
+
+יציאה. שוב **אורי**.
+
+המשמרת שאושרה **לא מופיעה יותר** ברשימה. נשארו רק משמרות שעדיין שלו.
+
+**הדבר הנוסף שכדאי להראות כאן:** לא רק שהמשמרת נעלמה. למעלה בשיחה אורי רואה גם «הבקשה אושרה.»  
+כך סוגרים מעגל: הוא ביקש, היא החליטה, הוא רואה גם תשובה וגם לוח מעודכן.
+
+אומרים: «הוא כבר לא עושה את המשמרת הזו. המערכת מחקה אותה מהרשימה שלו.»
 
 ---
 
-## Close the meeting with this
+## איך זה עובד מאחור, בשפה פשוטה
 
-We showed the foundation and the safety net.  
-One request. One reply. One business. A failure you can see. A retry you can explain.  
-The rest of the product sits on that.
+יש שלושה חלקים:
+
+1. **המסך** — האתר בכתובת 5173. אורי ונועה.
+2. **השרת** — תוכנה ששומעת לחיצות וכותבת למסד.
+3. **מסד הנתונים** — טבלאות ב־Supabase. זו האמת. אם רעננו את הדף והמצב נשאר, זה כי זה נשמר שם.
+
+### כשאורי לוחץ על משמרת
+
+האתר שולח לשרת: «אורי מבקש להחליף את המשמרת הזו.»
+
+השרת כותב כמה שורות:
+
+- **שיחה** (`agent_sessions`) — תיק אחד לפנייה הזו.
+- **הודעות** (`messages`) — מה שהוא ביקש, ומיד תשובה «הבקשה התקבלה.»
+- **בקשת החלפה** (`shift_swap_requests`) — מי ביקש, איזו משמרת, סטטוס **פתוחה**.
+
+אין הודעת וואטסאפ אמיתית. אותו מסלול שההודעה תעבור בו אחר כך, רק מהאתר.
+
+### כשנועה לוחצת אשר
+
+השרת מעדכן את אותה בקשה ל־**אושרה**, כותב הודעה «הבקשה אושרה.», ו**מוחק את המשמרת** מלוח העבודה של אורי (`shifts`).
+
+לכן כשחוזרים לאורי — המשמרת לא שם. לא הסתרה זמנית. השורה נמחקה.
+
+### למה שני אנשים לא רואים אחד את השני בטעות
+
+אורי הוא לקוח/עובד. נועה היא בעלת העסק. לכל אחד הרשאה אחרת.  
+כל השורות שייכות לחנות תל אביב. עסק אחר לא יכול לקרוא אותן.
+
+---
+
+## מה לא להבטיח בפגישה הזו
+
+- אין עדיין WhatsApp חי.
+- אין עדיין סוכן שמציע מחליף לעובד אחר לבד.
+- «צריך מחליף» מסמן שצריך מישהו אחר. זה לא שולח הצעה לעמית.
+
+אלה השלבים הבאים. היום מראים רק: בקשה, החלטה, משמרת שנעלמת.
+
+---
+
+## סגירת הפגישה
+
+הראינו פעולה עסקית אמיתית, מקצה לקצה.
+
+אורי מבקש. נועה מחליטה. המסד מתעדכן. הלוח של אורי משתנה.
+
+מכאן אפשר ללכת לוואטסאפ אמיתי, או להצעות מחליף, בלי להחליף את הסיפור הזה — רק להרחיב אותו.

@@ -1,6 +1,6 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { hashToken, mintAccessToken, randomToken, verifyPassword } from '@itay-chai/auth';
-import { prisma, type User } from '@itay-chai/database';
+import { listShiftsForUser, prisma, type User } from '@itay-chai/database';
 
 const REFRESH_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -35,19 +35,47 @@ export async function logout(refreshToken: string) {
   return { ok: true };
 }
 
-async function issueTokens(user: User) {
-  const refreshToken = randomToken();
-  await prisma.authSession.create({
-    data: {
-      userId: user.id,
-      refreshTokenHash: hashToken(refreshToken),
-      expiresAt: new Date(Date.now() + REFRESH_MS),
+export async function loadProfile(userId: string) {
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    include: {
+      memberships: {
+        where: { status: 'ACTIVE' },
+        include: { tenant: true, role: true, businessUnit: true },
+      },
     },
   });
-  const accessToken = await mintAccessToken({
-    sub: user.authSubject,
-    ...(user.email ? { email: user.email } : {}),
-    amr: user.mfaEnabled ? ['pwd', 'mfa'] : ['pwd'],
-  });
-  return { accessToken, refreshToken, userId: user.id, expiresIn: 15 * 60 };
+  return {
+    userId: user.id,
+    email: user.email,
+    name: user.name,
+    memberships: user.memberships.map((membership) => ({
+      tenantId: membership.tenantId,
+      tenantName: membership.tenant.name,
+      roleName: membership.role.name,
+      businessUnitId: membership.businessUnitId,
+      businessUnitName: membership.businessUnit?.name ?? null,
+    })),
+  };
+}
+
+async function issueTokens(user: User) {
+  const refreshToken = randomToken();
+  const [accessToken, profile, shifts] = await Promise.all([
+    mintAccessToken({
+      sub: user.authSubject,
+      ...(user.email ? { email: user.email } : {}),
+      amr: user.mfaEnabled ? ['pwd', 'mfa'] : ['pwd'],
+    }),
+    loadProfile(user.id),
+    listShiftsForUser(user.id),
+    prisma.authSession.create({
+      data: {
+        userId: user.id,
+        refreshTokenHash: hashToken(refreshToken),
+        expiresAt: new Date(Date.now() + REFRESH_MS),
+      },
+    }),
+  ]);
+  return { accessToken, refreshToken, expiresIn: 15 * 60, ...profile, shifts };
 }

@@ -7,6 +7,7 @@ export const PERMISSIONS = {
   SESSION_READ: 'session.read',
   SESSION_WRITE: 'session.write',
   TENANT_MANAGE: 'tenant.manage',
+  CUSTOMER_WRITE: 'customer.write',
   BREAK_GLASS: 'ops.break_glass',
   DLQ_REPLAY: 'ops.dlq',
 } as const;
@@ -14,9 +15,17 @@ export const PERMISSIONS = {
 export const ROLE_NAMES = {
   OWNER: 'owner',
   STAKEHOLDER: 'stakeholder',
+  CUSTOMER: 'customer',
   OPS_ADMIN: 'ops_admin',
   SERVICE: 'service',
 } as const;
+
+export function customerRequestPrefix(userId: string) {
+  return `web:${userId}:`;
+}
+
+export const SHIFT_DECISIONS = ['approve', 'reject', 'needs_replacement'] as const;
+export type ShiftDecision = (typeof SHIFT_DECISIONS)[number];
 export const MOCK_WHATSAPP_REPLY = 'Your request was received.';
 export const WHATSAPP_PROVIDER = 'whatsapp';
 export const AGENT_SESSION_QUEUE = 'agent-session';

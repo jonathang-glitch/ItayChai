@@ -1,8 +1,9 @@
 import { prisma } from './index.js';
-import { seedIdentity } from './seed-data.js';
+import { resetClientInbox, seedIdentity } from './seed-data.js';
 
 seedIdentity()
   .then(async () => {
+    await resetClientInbox();
     await prisma.$disconnect();
   })
   .catch(async (error: unknown) => {
