@@ -39,10 +39,10 @@ input {
 .signin {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 460px);
-  gap: 48px;
+  grid-template-columns: minmax(340px, 1fr) minmax(380px, 0.82fr);
   align-items: center;
-  padding: 48px 7vw;
+  gap: 32px 56px;
+  padding: 6vh 8vw;
   overflow: hidden;
   background: #100e0c;
   color: #f6efe6;
@@ -50,10 +50,10 @@ input {
 
 .signin-glow {
   position: absolute;
-  inset: auto -10% 10% 30%;
-  width: 520px;
-  height: 520px;
-  background: radial-gradient(circle, #c45c3255, transparent 68%);
+  inset: auto 12% -18% auto;
+  width: 420px;
+  height: 420px;
+  background: radial-gradient(circle, #c45c3244, transparent 70%);
   pointer-events: none;
 }
 
@@ -104,33 +104,48 @@ input {
   font-size: 13px;
 }
 
+.signin .brand-mark {
+  margin-bottom: 28px;
+  font-size: 14px;
+}
+
+.signin .brand-mark span {
+  width: 38px;
+  height: 38px;
+}
+
+.signin .kicker,
+.signin .card-kicker {
+  font-size: 13px;
+}
+
 .signin h1 {
-  margin: 0 0 16px;
+  margin: 0 0 14px;
   font-family: 'Frank Ruhl Libre', 'Times New Roman', serif;
-  font-size: clamp(44px, 6vw, 72px);
-  line-height: 1.05;
+  font-size: clamp(40px, 4.4vw, 62px);
+  line-height: 1.12;
   font-weight: 500;
 }
 
-.lede {
+.signin .lede {
   max-width: 28ch;
   color: #d8cbbd;
   line-height: 1.65;
-  font-size: 18px;
+  font-size: clamp(15px, 1.15vw, 17px);
 }
 
 .signin-card {
   background: var(--cream);
   color: var(--ink);
-  padding: 28px 26px 30px;
+  padding: 28px 26px;
   border-radius: 28px;
-  box-shadow: 0 30px 80px #00000055;
+  box-shadow: 0 24px 60px #00000044;
 }
 
 .people {
   display: grid;
   gap: 10px;
-  margin-bottom: 22px;
+  margin-bottom: 0;
 }
 
 .people button,
@@ -156,13 +171,29 @@ input {
 .people button {
   align-items: center;
   gap: 12px;
-  padding: 14px 14px 14px 12px;
-  border-radius: 18px;
+  padding: 14px 14px;
+  min-height: 72px;
+  border-radius: 16px;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.people button > span:nth-of-type(2) {
+  flex: 1;
+  min-width: 0;
 }
 
 .people button:hover,
 .row:hover {
   border-color: var(--ink);
+}
+
+.people button:hover {
+  border-color: var(--clay);
+  box-shadow: 0 10px 24px #c45c3218;
+  transform: translateY(-1px);
 }
 
 .people button:disabled,
@@ -220,11 +251,29 @@ input {
   font-size: 13px;
 }
 
+.signin .avatar {
+  width: 46px;
+  height: 46px;
+  font-size: 16px;
+}
+
+.signin .people strong {
+  font-size: 16px;
+}
+
+.signin .people em {
+  font-size: 13px;
+}
+
 .people b {
+  flex-shrink: 0;
   margin-inline-start: auto;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--clay);
+  color: #fffaf3;
   font-size: 13px;
   font-weight: 600;
-  color: var(--clay);
 }
 
 .signin-card form,
@@ -712,13 +761,18 @@ input {
 }
 
 @media (max-width: 860px) {
-  .signin,
   .who em {
     display: block;
   }
 
   .signin {
-    padding: 36px 20px 48px;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 36px 20px 40px;
+    gap: 28px;
+  }
+
+  .signin-story {
+    text-align: start;
   }
 
   .phone-card {
