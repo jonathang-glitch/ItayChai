@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { listCustomerHome, sendCustomerMessage } from './api';
 import { Conversation } from './conversation';
 import { COPY, statusLabel, storeLabel } from './copy';
-import { flattenMessages, formatShiftWhen, isFromLastDay } from './format';
+import { flattenMessages, formatShiftWhen, isFromLastDay, shiftTitle, swapRequestText } from './format';
 import { membershipOf, readCachedShifts, writeCachedShifts } from './session';
 import type { AuthSession, RequestItem, ShiftItem } from './types';
 
@@ -14,7 +14,7 @@ function pendingRequest(shift: ShiftItem, tenantId: string, name: string | null)
   const createdAt = new Date();
   const replyAt = new Date(createdAt.getTime() + 1);
   const now = createdAt.toISOString();
-  const text = `צריך החלפה ב${shift.label}`;
+  const text = swapRequestText(shiftTitle(shift));
   return {
     id: `pending:${shift.id}:${now}`,
     status: 'OPEN',
@@ -35,7 +35,7 @@ function pendingRequest(shift: ShiftItem, tenantId: string, name: string | null)
       id: `pending-swap:${shift.id}`,
       status: 'OPEN',
       intentText: text,
-      requestedLabel: shift.label,
+      requestedLabel: shiftTitle(shift),
       employeeName: name ?? COPY.customerName,
       shift,
     },
@@ -147,7 +147,7 @@ export function CustomerHome({ session }: Props) {
                 onClick={() => void sendShift(shift)}
               >
                 <span>
-                  <strong>{shift.label}</strong>
+                  <strong>{shiftTitle(shift)}</strong>
                   <em>{formatShiftWhen(shift.startsAt, shift.endsAt)}</em>
                 </span>
               </button>

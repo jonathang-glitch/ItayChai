@@ -13,7 +13,7 @@ export const COPY = {
   workerMissing: 'המשימה לא הסתיימה. צריך שהשרת, העובד וה־outbox יהיו דולקים.',
   customerSees: 'מה מראים ללקוח',
   inbound: 'צריך החלפת משמרת',
-  outbound: 'הבקשה התקבלה',
+  outbound: 'הבקשה נקלטה',
   chatWaiting: 'אחרי שלב ההודעה תופיע כאן שיחה אמיתית.',
   job: (id: string, status: string) => `משימה ${id} · ${status}`,
   businessA: 'עסק א׳',

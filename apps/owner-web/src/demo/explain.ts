@@ -35,7 +35,7 @@ export const EXPLAIN: Record<string, StepExplain> = {
     links: [editor, health],
   },
   whatsapp: {
-    did: 'נשלח POST /api/v1/webhooks/whatsapp/mock עם הטקסט «צריך החלפת משמרת». ה-API יצר משימה, כתב הודעה, שם עבודה ב-Redis. ה-worker על המק הריץ DRAFT → INITIALIZING → PLANNING → COMPLETED והחזיר «הבקשה התקבלה».',
+    did: 'נשלח POST /api/v1/webhooks/whatsapp/mock עם הטקסט «צריך החלפת משמרת». ה-API יצר משימה, כתב הודעה, שם עבודה ב-Redis. ה-worker על המק הריץ DRAFT → INITIALIZING → PLANNING → COMPLETED והחזיר «הבקשה נקלטה».',
     saved: 'Postgres ב-Docker על המק, טבלאות: agent_sessions (המשימה), messages (נכנס/יוצא), webhook_receipts, inbox_messages, session_transitions, domain_events, outbox_messages, audit_entries. התור הרגעי: Redis ב-Docker, פורט 6379.',
     verify: 'Docker → agent_sessions: סטטוס COMPLETED על המזהה שמופיע כאן. messages: שתי שורות לאותו session. outbox_messages: שורה עם published_at מלא. אם COMPLETED לא מגיע — העובד כבוי.',
     links: [editor, health],

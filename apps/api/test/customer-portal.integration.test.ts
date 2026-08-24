@@ -4,7 +4,7 @@ import { after, before, test } from 'node:test';
 import { NestFactory } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { DEV_TENANT_ID, ROLE_NAMES, SECOND_TENANT_ID } from '@itay-chai/contracts';
+import { DEV_TENANT_ID, ROLE_NAMES, SECOND_TENANT_ID, shiftLabelFromStart } from '@itay-chai/contracts';
 import {
   appPrisma,
   prisma,
@@ -59,12 +59,13 @@ test('customer can send a request the owner sees and cannot list all sessions', 
   assert.equal(typeof created.body.id, 'string');
   assert.equal(created.body.customerName, 'אורי');
   assert.equal(created.body.customerUserId, SEED_USERS.customerA.id);
-  assert.equal(created.body.shiftRequest?.requestedLabel, SEED_SHIFTS[0].label);
+  const fridayMorning = shiftLabelFromStart(SEED_SHIFTS[0].startsAt);
+  assert.equal(created.body.shiftRequest?.requestedLabel, fridayMorning);
   assert.equal(created.body.shiftRequest?.status, 'OPEN');
   assert.ok(
     (created.body.messages as { direction: string; body: string }[]).some(
       (message) =>
-        message.direction === 'INBOUND' && message.body === `צריך החלפה ב${SEED_SHIFTS[0].label}`,
+        message.direction === 'INBOUND' && message.body === `צריך החלפה ב${fridayMorning}`,
     ),
   );
   assert.ok(
@@ -96,7 +97,7 @@ test('customer can send a request the owner sees and cannot list all sessions', 
   ).find((row) => row.id === created.body.id);
   assert.ok(seen);
   assert.equal(seen.customerName, 'אורי');
-  assert.equal(seen.shiftRequest?.requestedLabel, SEED_SHIFTS[0].label);
+  assert.equal(seen.shiftRequest?.requestedLabel, fridayMorning);
 
   const decided = await request(app.getHttpServer())
     .post(`/api/v1/sessions/${created.body.id}/shift-decision`)

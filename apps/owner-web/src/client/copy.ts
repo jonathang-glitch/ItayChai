@@ -1,3 +1,5 @@
+import { phraseShiftTalk } from './format';
+
 export const COPY = {
   brand: 'איתי חי',
   signInKicker: 'לעסקים מקומיים',
@@ -8,7 +10,7 @@ export const COPY = {
   ownerRole: 'בעלת העסק',
   ownerPlace: 'חנות תל אביב',
   customerName: 'אורי',
-  customerRole: 'לקוח',
+  customerRole: 'עובד',
   customerPlace: 'פונה לחנות',
   entering: 'נכנסים…',
   badLogin: 'הכניסה לא הצליחה. בדקו את הפרטים ונסו שוב.',
@@ -68,9 +70,9 @@ export function personName(name: string | null | undefined, roleName: string) {
 }
 
 const REPLIES: Record<string, string> = {
-  'Your request was received.': 'הבקשה התקבלה.',
+  'Your request was received.': 'הבקשה נקלטה.',
 };
 
 export function displayBody(body: string) {
-  return REPLIES[body] ?? body;
+  return phraseShiftTalk(REPLIES[body] ?? body);
 }

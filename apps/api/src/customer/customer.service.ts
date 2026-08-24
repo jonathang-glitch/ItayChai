@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { BadRequestException } from '@nestjs/common';
 import { requireTenantContext } from '@itay-chai/auth';
-import { customerRequestPrefix } from '@itay-chai/contracts';
+import { customerRequestPrefix, shiftLabelFromStart, swapRequestText } from '@itay-chai/contracts';
 import {
   createShiftRequestForSession,
   findCustomerSessions,
@@ -57,7 +57,8 @@ export async function createCustomerRequest(input: { text?: string; shiftId?: st
   if (input.shiftId && !shift) {
     throw new BadRequestException('Shift is not on this employee roster');
   }
-  const text = input.text?.trim() || (shift ? `צריך החלפה ב${shift.label}` : 'צריך החלפת משמרת');
+  const label = shift ? shiftLabelFromStart(shift.startsAt) : undefined;
+  const text = input.text?.trim() || (label ? swapRequestText(label) : 'צריך החלפת משמרת');
   const created = await ingestMockWhatsApp(
     {
       externalMessageId: `${customerRequestPrefix(userId)}${randomUUID()}`,
@@ -77,7 +78,7 @@ export async function createCustomerRequest(input: { text?: string; shiftId?: st
       text,
       shiftId: input.shiftId,
       ...(employee ? { employeeId: employee.id } : {}),
-      ...(shift ? { requestedLabel: shift.label } : {}),
+      ...(label ? { requestedLabel: label } : {}),
     });
   } catch (error) {
     throw new BadRequestException(error instanceof Error ? error.message : 'Shift request failed');

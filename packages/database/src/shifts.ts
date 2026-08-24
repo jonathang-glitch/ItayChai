@@ -1,5 +1,5 @@
 import { requireTenantContext } from '@itay-chai/auth';
-import { WHATSAPP_PROVIDER } from '@itay-chai/contracts';
+import { phraseShiftLabel, shiftLabelFromStart, WHATSAPP_PROVIDER } from '@itay-chai/contracts';
 import { prisma } from './index.js';
 
 const ACTION_TO_STATUS = {
@@ -24,7 +24,7 @@ export function presentShift(shift: {
 }) {
   return {
     id: shift.id,
-    label: shift.label,
+    label: shiftLabelFromStart(shift.startsAt),
     startsAt: shift.startsAt,
     endsAt: shift.endsAt,
   };
@@ -50,7 +50,9 @@ export function presentShiftRequest(
     id: request.id,
     status: request.status,
     intentText: request.intentText,
-    requestedLabel: request.requestedLabel,
+    requestedLabel: request.shift
+      ? shiftLabelFromStart(request.shift.startsAt)
+      : phraseShiftLabel(request.requestedLabel),
     employeeName: request.employee.displayName,
     shift: request.shift ? presentShift(request.shift) : null,
   };
@@ -101,7 +103,7 @@ export async function createShiftRequestForSession(input: {
       throw new Error('Shift is not on this employee roster');
     }
     shiftId = shift.id;
-    requestedLabel = shift.label;
+    requestedLabel = shiftLabelFromStart(shift.startsAt);
   }
 
   return prisma.shiftSwapRequest.create({

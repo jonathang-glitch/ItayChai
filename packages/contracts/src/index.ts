@@ -24,6 +24,49 @@ export function customerRequestPrefix(userId: string) {
   return `web:${userId}:`;
 }
 
+export function shiftLabelFromStart(startsAt: Date | string) {
+  const date = typeof startsAt === 'string' ? new Date(startsAt) : startsAt;
+  const weekday = new Intl.DateTimeFormat('he-IL', {
+    weekday: 'long',
+    timeZone: 'Asia/Jerusalem',
+  })
+    .format(date)
+    .replace(/^יום\s+/, '');
+  const hour = Number(
+    new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit',
+      hour12: false,
+      timeZone: 'Asia/Jerusalem',
+    }).format(date),
+  );
+  return `${weekday} ${hour < 15 ? 'בבוקר' : 'בערב'}`;
+}
+
+export function phraseShiftLabel(label: string) {
+  const trimmed = label.trim();
+  const morning = trimmed.match(/^בוקר\s+(.+)$/);
+  if (morning) {
+    return `${morning[1]} בבוקר`;
+  }
+  const evening = trimmed.match(/^ערב\s+(.+)$/);
+  if (evening) {
+    return `${evening[1]} בערב`;
+  }
+  return trimmed;
+}
+
+export function phraseShiftTalk(text: string) {
+  return text
+    .replace(/בבוקר\s+(\S+)/g, 'ב$1 בבוקר')
+    .replace(/בערב\s+(\S+)/g, 'ב$1 בערב')
+    .replace(/בוקר\s+(\S+)/g, '$1 בבוקר')
+    .replace(/ערב\s+(\S+)/g, '$1 בערב');
+}
+
+export function swapRequestText(label: string) {
+  return `צריך החלפה ב${phraseShiftLabel(label)}`;
+}
+
 export const SHIFT_DECISIONS = ['approve', 'reject', 'needs_replacement'] as const;
 export type ShiftDecision = (typeof SHIFT_DECISIONS)[number];
 export const MOCK_WHATSAPP_REPLY = 'Your request was received.';

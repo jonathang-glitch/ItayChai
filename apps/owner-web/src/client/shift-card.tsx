@@ -1,6 +1,6 @@
 import { Conversation } from './conversation';
 import { COPY, statusLabel } from './copy';
-import { firstInbound, formatShiftWhen, formatTime } from './format';
+import { firstInbound, formatShiftWhen, formatTime, shiftTitle } from './format';
 import type { RequestItem } from './types';
 
 type Props = {
@@ -14,7 +14,11 @@ export function ShiftCard({ item, busy, onDecide }: Props) {
   const name = item.customerName ?? COPY.customerName;
   const status = request?.status ?? item.status;
   const open = status === 'OPEN';
-  const label = request?.requestedLabel ?? firstInbound(item) ?? COPY.shiftFor;
+  const label = request?.shift
+    ? shiftTitle(request.shift)
+    : request?.requestedLabel
+      ? shiftTitle({ label: request.requestedLabel, startsAt: '' })
+      : firstInbound(item) || COPY.shiftFor;
 
   return (
     <article className="case-card">
