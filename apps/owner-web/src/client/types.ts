@@ -30,13 +30,20 @@ export type ChatMessage = {
   createdAt: string;
 };
 
+export type ShiftRequestKind = 'COVER' | 'SWAP' | 'EITHER';
+
 export type ShiftRequest = {
   id: string;
-  status: 'OPEN' | 'APPROVED' | 'REJECTED' | 'NEEDS_REPLACEMENT' | string;
+  status: string;
+  kind?: ShiftRequestKind | string;
   intentText: string;
   requestedLabel: string;
   employeeName: string;
   shift: ShiftItem | null;
+  proposedShift?: ShiftItem | null;
+  counterpartName?: string | null;
+  searchSummary?: string;
+  offers?: { id: string; status: string; employeeName: string; allowCover: boolean; allowSwap: boolean }[];
 };
 
 export type RequestItem = {
@@ -48,4 +55,25 @@ export type RequestItem = {
   customerName: string | null;
   messages: ChatMessage[];
   shiftRequest: ShiftRequest | null;
+};
+
+export type IncomingOffer = {
+  id: string;
+  status: string;
+  allowCover: boolean;
+  allowSwap: boolean;
+  prompt: string;
+  createdAt: string;
+  requesterName: string;
+  requestedShift: ShiftItem | null;
+  proposedShift: ShiftItem | null;
+  weekShifts?: ShiftItem[];
+  swapChoices: ShiftItem[];
+  requestStatus: string;
+};
+
+export type CustomerHomeData = {
+  requests: RequestItem[];
+  shifts: ShiftItem[];
+  offers: IncomingOffer[];
 };

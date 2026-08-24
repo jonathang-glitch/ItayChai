@@ -13,7 +13,8 @@ export function ShiftCard({ item, busy, onDecide }: Props) {
   const request = item.shiftRequest;
   const name = item.customerName ?? COPY.customerName;
   const status = request?.status ?? item.status;
-  const open = status === 'OPEN';
+  const open = status === 'OPEN' || status === 'UNFILLED';
+  const searching = status === 'SEEKING' || status === 'MATCH_PROPOSED';
   const label = request?.shift
     ? shiftTitle(request.shift)
     : request?.requestedLabel
@@ -27,13 +28,21 @@ export function ShiftCard({ item, busy, onDecide }: Props) {
         <div>
           <strong>{name}</strong>
           <em>{label}</em>
-          {request?.shift ? <p>{formatShiftWhen(request.shift.startsAt, request.shift.endsAt)}</p> : null}
+          {request?.shift ? <p>{formatShiftWhen(request.shift.startsAt)}</p> : null}
+          {request?.searchSummary ? <p>{request.searchSummary}</p> : null}
         </div>
         <span className="case-meta">
           <time>{formatTime(item.createdAt)}</time>
           <em className={`pill ${status.toLowerCase()}`}>{statusLabel(status)}</em>
         </span>
       </header>
+      {onDecide && searching ? (
+        <div className="shift-actions">
+          <button type="button" className="reject" disabled={busy} onClick={() => onDecide('reject')}>
+            {COPY.reject}
+          </button>
+        </div>
+      ) : null}
       {onDecide && open ? (
         <div className="shift-actions">
           <button type="button" className="approve" disabled={busy} onClick={() => onDecide('approve')}>

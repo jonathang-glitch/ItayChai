@@ -57,16 +57,59 @@ export function phraseShiftLabel(label: string) {
 
 export function phraseShiftTalk(text: string) {
   return text
-    .replace(/בבוקר\s+(\S+)/g, 'ב$1 בבוקר')
-    .replace(/בערב\s+(\S+)/g, 'ב$1 בערב')
-    .replace(/בוקר\s+(\S+)/g, '$1 בבוקר')
-    .replace(/ערב\s+(\S+)/g, '$1 בערב');
+    .replace(/בבוקר\s+(?![\d(])(\S+)/g, 'ב$1 בבוקר')
+    .replace(/בערב\s+(?![\d(])(\S+)/g, 'ב$1 בערב')
+    .replace(/בוקר\s+(?![\d(])(\S+)/g, '$1 בבוקר')
+    .replace(/ערב\s+(?![\d(])(\S+)/g, '$1 בערב');
 }
 
 export function swapRequestText(label: string) {
   return `צריך החלפה ב${phraseShiftLabel(label)}`;
 }
 
+export function requestIntentText(kind: 'COVER' | 'SWAP' | 'EITHER', label: string) {
+  if (kind === 'COVER') {
+    return `צריך מחליף ב${phraseShiftLabel(label)}`;
+  }
+  if (kind === 'SWAP') {
+    return `צריך החלפה ב${phraseShiftLabel(label)}`;
+  }
+  return `צריך כיסוי או החלפה ב${phraseShiftLabel(label)}`;
+}
+
+export function jerusalemDayKey(value: Date | string) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jerusalem',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(typeof value === 'string' ? new Date(value) : value);
+}
+
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+
+export function jerusalemWeekday(value: Date | string) {
+  const name = new Intl.DateTimeFormat('en-US', {
+    weekday: 'short',
+    timeZone: 'Asia/Jerusalem',
+  }).format(typeof value === 'string' ? new Date(value) : value);
+  return WEEKDAYS.indexOf(name as (typeof WEEKDAYS)[number]);
+}
+
+export function jerusalemWeekKey(value: Date | string) {
+  const day = jerusalemDayKey(value);
+  const [year, month, date] = day.split('-').map(Number);
+  const start = Date.UTC(year, month - 1, date) - jerusalemWeekday(value) * 86_400_000;
+  const sunday = new Date(start);
+  return `${sunday.getUTCFullYear()}-${String(sunday.getUTCMonth() + 1).padStart(2, '0')}-${String(sunday.getUTCDate()).padStart(2, '0')}`;
+}
+
+export const SHIFT_REQUEST_KINDS = ['COVER', 'SWAP', 'EITHER'] as const;
+export type ShiftRequestKind = (typeof SHIFT_REQUEST_KINDS)[number];
+export const SHIFT_OFFER_ACTIONS = ['cover', 'swap', 'decline'] as const;
+export type ShiftOfferAction = (typeof SHIFT_OFFER_ACTIONS)[number];
+export const SHIFT_MATCH_ACTIONS = ['accept', 'decline'] as const;
+export type ShiftMatchAction = (typeof SHIFT_MATCH_ACTIONS)[number];
 export const SHIFT_DECISIONS = ['approve', 'reject', 'needs_replacement'] as const;
 export type ShiftDecision = (typeof SHIFT_DECISIONS)[number];
 export const MOCK_WHATSAPP_REPLY = 'Your request was received.';

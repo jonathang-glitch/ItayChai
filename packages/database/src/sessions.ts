@@ -7,7 +7,15 @@ import { withTenantDb } from './tenant-db.js';
 const sessionWithMessages = {
   messages: { orderBy: { createdAt: 'asc' as const } },
   customer: { select: { id: true, name: true, email: true } },
-  shiftRequest: { include: { shift: true, employee: true } },
+  shiftRequest: {
+    include: {
+      shift: true,
+      employee: true,
+      counterpart: true,
+      proposedShift: true,
+      offers: { include: { employee: true, proposedShift: true }, orderBy: { createdAt: 'asc' as const } },
+    },
+  },
 };
 
 export function presentSession<
@@ -40,6 +48,7 @@ export async function findSessionsForTenant() {
     where: { tenantId },
     include: sessionWithMessages,
     orderBy: { createdAt: 'desc' },
+    take: 12,
   });
   return rows.map(presentSession);
 }
@@ -63,6 +72,7 @@ export async function findCustomerSessions(userId: string) {
     },
     include: sessionWithMessages,
     orderBy: { createdAt: 'desc' },
+    take: 8,
   });
   return rows.map(presentSession);
 }
