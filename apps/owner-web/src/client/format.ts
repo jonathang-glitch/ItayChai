@@ -98,7 +98,7 @@ export function isFromLastDay(value: string) {
   return date >= start;
 }
 
-const OPEN_REQUEST = new Set(['OPEN', 'SEEKING', 'MATCH_PROPOSED', 'UNFILLED']);
+const OPEN_REQUEST = new Set(['OPEN', 'SEEKING', 'MATCH_PROPOSED', 'UNFILLED', 'COMMITTED']);
 
 export function isLiveRequest(item: RequestItem) {
   if (item.shiftRequest) {

@@ -4,7 +4,7 @@ import { Conversation } from './conversation';
 import { COPY, statusLabel, storeLabel } from './copy';
 import { flattenMessages, formatShiftWhen, isFromLastDay, isLiveRequest, shiftTitle } from './format';
 import { OfferCard } from './offer-card';
-import { membershipOf, readCachedShifts, writeCachedShifts } from './session';
+import { membershipOf, readCachedShifts, readSession, writeCachedShifts } from './session';
 import type { AuthSession, IncomingOffer, RequestItem, ShiftItem, ShiftRequestKind } from './types';
 
 type Props = {
@@ -23,6 +23,9 @@ function requestError(body: unknown) {
   if (message === 'Invalid token' || message === 'Invalid refresh token' || message === 'Missing bearer token') {
     return COPY.sessionExpired;
   }
+  if (message === 'Request timeout') {
+    return COPY.down;
+  }
   return message || COPY.down;
 }
 
@@ -31,7 +34,10 @@ const TAKEN = new Set(['APPROVED', 'COMMITTED']);
 const LIVE_OFFER = new Set(['SEEKING', 'MATCH_PROPOSED']);
 
 function liveOffers(offers: IncomingOffer[]) {
-  return offers.filter((offer) => offer.status === 'PENDING' && LIVE_OFFER.has(offer.requestStatus));
+  return offers.filter(
+    (offer) =>
+      Boolean(offer.result) || (offer.status === 'PENDING' && LIVE_OFFER.has(offer.requestStatus)),
+  );
 }
 
 function withoutTaken(shifts: ShiftItem[], items: RequestItem[]) {
@@ -73,7 +79,14 @@ export function CustomerHome({ session }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [compose, setCompose] = useState(false);
   const inflight = useRef(false);
+  const acting = useRef(false);
+  const waitingRef = useRef(false);
   const scroller = useRef<HTMLDivElement>(null);
+  const seen = useRef(0);
+
+  function token() {
+    return readSession()?.accessToken ?? session.accessToken;
+  }
 
   useEffect(() => {
     if (!membership) {
@@ -82,23 +95,32 @@ export function CustomerHome({ session }: Props) {
     const tenantId = membership.tenantId;
     let cancelled = false;
     async function refresh() {
-      if (inflight.current || document.hidden) {
+      if (inflight.current || acting.current || document.hidden) {
         return;
       }
       inflight.current = true;
       try {
-        const home = await listCustomerHome(session.accessToken, tenantId);
+        const home = await listCustomerHome(token(), tenantId);
         if (cancelled || home.status !== 200) {
           return;
         }
         applyHome(home.body, session.userId, setItems, setOffers, setShifts);
+        waitingRef.current = (home.body.offers ?? []).some(
+          (offer) => offer.status === 'ACCEPTED' && offer.requestStatus === 'MATCH_PROPOSED',
+        );
         setLoadingShifts(false);
       } finally {
         inflight.current = false;
       }
     }
-    void refresh();
-    const timer = setInterval(() => void refresh(), 12000);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    async function tick() {
+      await refresh();
+      if (!cancelled) {
+        timer = setTimeout(() => void tick(), waitingRef.current ? 4000 : 12000);
+      }
+    }
+    void tick();
     const onVisible = () => {
       if (!document.hidden) {
         void refresh();
@@ -107,51 +129,49 @@ export function CustomerHome({ session }: Props) {
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       cancelled = true;
-      clearInterval(timer);
+      if (timer) {
+        clearTimeout(timer);
+      }
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [membership, session.accessToken, session.userId]);
+  }, [membership, session.userId]);
 
   async function sendKind(shift: ShiftItem, kind: ShiftRequestKind) {
-    if (!membership || busy) {
+    if (!membership || acting.current) {
       return;
     }
+    acting.current = true;
     setShiftId(shift.id);
     setBusy(true);
     setError(null);
     try {
-      const result = await sendCustomerMessage(session.accessToken, membership.tenantId, shift.id, kind);
+      const result = await sendCustomerMessage(token(), membership.tenantId, shift.id, kind);
       if (result.status !== 201 && result.status !== 200) {
         throw new Error(requestError(result.body));
       }
-      const home = await listCustomerHome(session.accessToken, membership.tenantId);
-      if (home.status === 200) {
-        applyHome(home.body, session.userId, setItems, setOffers, setShifts);
-      } else {
+      if (result.body?.id) {
         setItems((current) => [result.body, ...current.filter((item) => !item.id.startsWith('pending:'))]);
       }
       setShiftId('');
       setCompose(false);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : COPY.down);
-      const home = await listCustomerHome(session.accessToken, membership.tenantId);
-      if (home.status === 200) {
-        applyHome(home.body, session.userId, setItems, setOffers, setShifts);
-      }
     } finally {
+      acting.current = false;
       setBusy(false);
     }
   }
 
   async function answerOffer(offer: IncomingOffer, action: 'cover' | 'swap' | 'decline', proposedShiftId?: string) {
-    if (!membership || busy) {
+    if (!membership || acting.current) {
       return;
     }
+    acting.current = true;
     setBusy(true);
     setError(null);
     try {
       const result = await respondToOffer(
-        session.accessToken,
+        token(),
         membership.tenantId,
         offer.id,
         action,
@@ -161,46 +181,50 @@ export function CustomerHome({ session }: Props) {
         throw new Error(requestError(result.body));
       }
       applyHome(result.body, session.userId, setItems, setOffers, setShifts);
+      waitingRef.current = (result.body.offers ?? []).some(
+        (row) => row.status === 'ACCEPTED' && row.requestStatus === 'MATCH_PROPOSED',
+      );
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : COPY.down);
     } finally {
+      acting.current = false;
       setBusy(false);
     }
   }
 
   async function takeOffer(offer: IncomingOffer, action: 'cover' | 'swap' | 'decline', proposedShiftId?: string) {
-    setOffers((current) =>
-      action === 'decline'
-        ? current.filter((row) => row.id !== offer.id)
-        : current.filter((row) => row.requestedShift?.id !== offer.requestedShift?.id),
-    );
+    if (action === 'decline') {
+      setOffers((current) => current.filter((row) => row.id !== offer.id));
+    }
     await answerOffer(offer, action, proposedShiftId);
   }
 
   async function answerMatch(item: RequestItem, action: 'accept' | 'decline') {
-    if (!membership || busy) {
+    if (!membership || acting.current) {
       return;
     }
+    acting.current = true;
     setBusy(true);
     setError(null);
+    if (action === 'accept') {
+      setItems((current) =>
+        current.map((row) =>
+          row.id === item.id && row.shiftRequest
+            ? { ...row, shiftRequest: { ...row.shiftRequest, status: 'COMMITTED' } }
+            : row,
+        ),
+      );
+    }
     try {
-      const result = await confirmShiftMatch(session.accessToken, membership.tenantId, item.id, action);
+      const result = await confirmShiftMatch(token(), membership.tenantId, item.id, action);
       if (result.status < 200 || result.status >= 300) {
         throw new Error(COPY.down);
-      }
-      if (action === 'accept') {
-        setItems((current) =>
-          current.map((row) =>
-            row.id === item.id && row.shiftRequest
-              ? { ...row, shiftRequest: { ...row.shiftRequest, status: 'COMMITTED' } }
-              : row,
-          ),
-        );
       }
       applyHome(result.body, session.userId, setItems, setOffers, setShifts);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : COPY.down);
     } finally {
+      acting.current = false;
       setBusy(false);
     }
   }
@@ -217,12 +241,13 @@ export function CustomerHome({ session }: Props) {
   const showComposer = compose || !inChat;
 
   useEffect(() => {
-    const box = scroller.current;
-    if (!box) {
+    const next = messages.length + pendingOffers.length;
+    if (next <= seen.current) {
       return;
     }
-    box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
-  }, [messages.length, pendingOffers.length, proposed?.id]);
+    seen.current = next;
+    scroller.current?.scrollTo({ top: scroller.current.scrollHeight });
+  }, [messages.length, pendingOffers.length]);
 
   return (
     <main className="chat-shell">
@@ -246,19 +271,19 @@ export function CustomerHome({ session }: Props) {
                   onAnswer={(row, action, shift) => void takeOffer(row, action, shift)}
                 />
               ))}
-              {proposed ? (
-                <li className="chat-replies">
-                  <button type="button" className="yes" disabled={busy} onClick={() => void answerMatch(proposed, 'accept')}>
-                    {COPY.confirmMatch}
-                  </button>
-                  <button type="button" className="no" disabled={busy} onClick={() => void answerMatch(proposed, 'decline')}>
-                    {COPY.refuseMatch}
-                  </button>
-                </li>
-              ) : null}
             </Conversation>
           ) : null}
         </div>
+        {proposed ? (
+          <div className="chat-dock">
+            <button type="button" className="yes" disabled={busy} onClick={() => void answerMatch(proposed, 'accept')}>
+              {COPY.confirmMatch}
+            </button>
+            <button type="button" className="no" disabled={busy} onClick={() => void answerMatch(proposed, 'decline')}>
+              {COPY.refuseMatch}
+            </button>
+          </div>
+        ) : null}
         {showComposer ? (
           <div className="shift-composer">
             <p className="shift-kicker">{COPY.pickShift}</p>

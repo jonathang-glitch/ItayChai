@@ -13,7 +13,15 @@ export function ClientApp() {
 
   useEffect(() => {
     function onSession(event: Event) {
-      setSession((event as CustomEvent<AuthSession | null>).detail);
+      const next = (event as CustomEvent<AuthSession | null>).detail;
+      if (!next) {
+        return;
+      }
+      setSession((current) =>
+        current && current.userId === next.userId
+          ? { ...current, accessToken: next.accessToken, refreshToken: next.refreshToken }
+          : next,
+      );
     }
     window.addEventListener(SESSION_EVENT, onSession);
     return () => window.removeEventListener(SESSION_EVENT, onSession);

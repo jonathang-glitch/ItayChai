@@ -66,10 +66,42 @@ async function writeOutbound(tx: Tx, tenantId: string, sessionId: string, body: 
   });
 }
 
+async function writePeerNotice(
+  tx: Tx,
+  tenantId: string,
+  employeeId: string,
+  body: string,
+  requestId: string,
+) {
+  const employee = await tx.employee.findUnique({
+    where: { id: employeeId },
+    select: { userId: true, businessUnitId: true },
+  });
+  if (!employee?.userId) {
+    return;
+  }
+  const externalMessageId = `notice:${employee.userId}:${requestId}`;
+  const session = await tx.agentSession.upsert({
+    where: { tenantId_externalMessageId: { tenantId, externalMessageId } },
+    create: {
+      tenantId,
+      customerUserId: employee.userId,
+      businessUnitId: employee.businessUnitId,
+      externalMessageId,
+      status: 'COMPLETED',
+    },
+    update: { status: 'COMPLETED' },
+  });
+  await writeOutbound(tx, tenantId, session.id, body);
+}
+
 export async function startShiftSearch(requestId: string) {
   const request = await prisma.shiftSwapRequest.findUnique({
     where: { id: requestId },
-    include: { shift: true, employee: { include: { shifts: true } } },
+    include: {
+      shift: { select: { id: true, businessUnitId: true, startsAt: true, endsAt: true } },
+      employee: { select: { shifts: { select: { startsAt: true } } } },
+    },
   });
   if (!request?.shift) {
     return request;
@@ -82,8 +114,13 @@ export async function startShiftSearch(requestId: string) {
       tenantId: request.tenantId,
       businessUnitId: request.shift.businessUnitId,
       id: { not: request.employeeId },
+      userId: { not: null },
     },
-    include: { shifts: true },
+    select: {
+      id: true,
+      displayName: true,
+      shifts: { select: { id: true, label: true, startsAt: true, endsAt: true } },
+    },
   });
 
   const kind = request.kind as ShiftRequestKind;
@@ -146,16 +183,62 @@ export async function listIncomingOffers(userId: string) {
   const since = new Date();
   since.setDate(since.getDate() - 2);
   const rows = await prisma.shiftOffer.findMany({
-    where: { tenantId, employee: { userId }, createdAt: { gte: since } },
+    where: {
+      tenantId,
+      employee: { userId },
+      createdAt: { gte: since },
+      OR: [
+        { status: 'PENDING', request: { status: { in: [...ACTIVE_SEARCH] } } },
+        { status: 'ACCEPTED', request: { status: { in: ['MATCH_PROPOSED', 'COMMITTED'] } } },
+        { status: 'QUEUED', request: { status: { in: [...ACTIVE_SEARCH] } } },
+      ],
+    },
     include: {
-      employee: { include: { shifts: true } },
-      proposedShift: true,
-      request: { include: { shift: true, employee: { include: { shifts: true } } } },
+      employee: { select: { displayName: true, shifts: { select: { id: true, label: true, startsAt: true, endsAt: true } } } },
+      proposedShift: { select: { id: true, label: true, startsAt: true, endsAt: true } },
+      request: {
+        select: {
+          status: true,
+          kind: true,
+          shift: { select: { id: true, label: true, startsAt: true, endsAt: true } },
+          employee: { select: { displayName: true, shifts: { select: { startsAt: true } } } },
+        },
+      },
     },
     orderBy: { createdAt: 'desc' },
     take: 8,
   });
   return rows.map(presentOffer);
+}
+
+function offerResult(
+  offer: {
+    status: string;
+    allowCover: boolean;
+    allowSwap: boolean;
+    proposedShift: { startsAt: Date } | null;
+    request: {
+      status: string;
+      employee: { displayName: string };
+      shift: { startsAt: Date } | null;
+    };
+  },
+) {
+  const wantedAt = offer.request.shift?.startsAt;
+  const offeredAt = offer.proposedShift?.startsAt ?? null;
+  if (offer.status === 'QUEUED') {
+    return offer.allowCover ? copy.queuedCover() : copy.queuedSwap();
+  }
+  if (offer.status === 'ACCEPTED' && offer.request.status === 'MATCH_PROPOSED' && wantedAt) {
+    return copy.swapProposed(offer.request.employee.displayName, wantedAt, offeredAt, false);
+  }
+  if (offer.status === 'ACCEPTED' && offer.request.status === 'COMMITTED' && wantedAt) {
+    if (offer.allowSwap && offeredAt) {
+      return copy.swapDonePeer(offer.request.employee.displayName, wantedAt, offeredAt);
+    }
+    return copy.coverCommitted(offer.request.employee.displayName, wantedLabel(wantedAt), true);
+  }
+  return null;
 }
 
 export function presentOffer(offer: {
@@ -169,7 +252,7 @@ export function presentOffer(offer: {
   request: {
     status: string;
     kind: string;
-    employee: { displayName: string; shifts: { id: string; startsAt: Date }[] };
+    employee: { displayName: string; shifts: { startsAt: Date }[] };
     shift: { id: string; label: string; startsAt: Date; endsAt: Date } | null;
   };
 }) {
@@ -195,6 +278,7 @@ export function presentOffer(offer: {
     allowCover: offer.allowCover,
     allowSwap: offer.allowSwap,
     prompt,
+    result: offerResult(offer),
     createdAt: offer.createdAt,
     requesterName: requester,
     requestedShift: offer.request.shift,
@@ -214,9 +298,19 @@ export async function respondToOffer(offerId: string, action: ShiftOfferAction, 
     const offer = await tx.shiftOffer.findFirst({
       where: { id: offerId, tenantId, employee: { userId } },
       include: {
-        employee: { include: { shifts: true } },
-        proposedShift: true,
-        request: { include: { shift: true, employee: { include: { shifts: true } } } },
+        employee: { select: { displayName: true, shifts: { select: { id: true, label: true, startsAt: true, endsAt: true } } } },
+        proposedShift: { select: { id: true, startsAt: true, endsAt: true } },
+        request: {
+          select: {
+            id: true,
+            tenantId: true,
+            sessionId: true,
+            kind: true,
+            status: true,
+            shift: { select: { id: true, startsAt: true, endsAt: true } },
+            employee: { select: { displayName: true, shifts: { select: { startsAt: true } } } },
+          },
+        },
       },
     });
     if (!offer?.request.shift) {
@@ -330,6 +424,13 @@ async function commitCover(
     offer.request.sessionId,
     copy.coverCommitted(offer.employee.displayName, wanted, false),
   );
+  await writePeerNotice(
+    tx,
+    offer.request.tenantId,
+    offer.employeeId,
+    copy.coverCommitted(offer.employee.displayName, wanted, true),
+    offer.request.id,
+  );
   return { ok: true };
 }
 
@@ -388,6 +489,18 @@ async function proposeSwap(
       offer.request.requesterName,
     ),
   );
+  await writePeerNotice(
+    tx,
+    offer.request.tenantId,
+    offer.employeeId,
+    copy.swapProposed(
+      offer.employee.displayName,
+      offer.request.shift.startsAt,
+      offer.proposedShift?.startsAt ?? null,
+      false,
+    ),
+    offer.request.id,
+  );
   return { ok: true };
 }
 
@@ -436,6 +549,13 @@ export async function confirmMatch(sessionId: string, action: ShiftMatchAction) 
       const wanted = wantedLabel(request.shift.startsAt);
       const offered = wantedLabel(request.proposedShift.startsAt);
       await writeOutbound(tx, tenantId, sessionId, copy.swapCommitted(wanted, offered));
+      await writePeerNotice(
+        tx,
+        tenantId,
+        request.counterpartEmployeeId,
+        copy.swapDonePeer(request.employee.displayName, request.shift.startsAt, request.proposedShift.startsAt),
+        request.id,
+      );
       return { ok: true };
     }
     await tx.shiftOffer.updateMany({

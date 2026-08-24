@@ -100,7 +100,7 @@ export async function listShiftsForUser(userId: string, tenantId?: string) {
     where: {
       ...(tenantId ? { tenantId } : {}),
       employee: { userId },
-      swapRequests: { none: { status: { in: ['APPROVED', 'COMMITTED'] } } },
+      swapRequests: { none: { status: 'APPROVED' } },
     },
     orderBy: { startsAt: 'asc' },
   });

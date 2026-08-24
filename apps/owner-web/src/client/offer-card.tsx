@@ -15,12 +15,13 @@ export function OfferCard({ offer, busy, onAnswer }: Props) {
   const choices = offer.swapChoices;
   const week = offer.weekShifts ?? [];
   const canSwap = offer.allowSwap && choices.length > 0;
+  const settled = Boolean(offer.result);
 
   return (
     <li className="chat-turn">
       <div className="bubble theirs">
-        <p>{offerPrompt(offer)}</p>
-        {week.length > 0 ? (
+        <p>{settled ? offer.result : offerPrompt(offer)}</p>
+        {settled ? null : week.length > 0 ? (
           <ul className="week-shifts">
             <li>{COPY.yourWeek}</li>
             {week.map((shift) => (
@@ -32,7 +33,7 @@ export function OfferCard({ offer, busy, onAnswer }: Props) {
         )}
         <time>{formatTime(offer.createdAt)}</time>
       </div>
-      {picking && canSwap ? (
+      {settled ? null : picking && canSwap ? (
         <>
           <div className="bubble theirs">
             <p>{COPY.pickSwapShift}</p>

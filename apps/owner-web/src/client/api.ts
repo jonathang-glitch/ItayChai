@@ -22,10 +22,13 @@ async function refreshAccessToken() {
     skipRefresh: true,
   });
   if (result.status !== 200 || !result.body.accessToken) {
-    publishSession(null);
     return null;
   }
-  publishSession({ ...session, ...result.body });
+  publishSession({
+    ...session,
+    accessToken: result.body.accessToken,
+    refreshToken: result.body.refreshToken,
+  });
   return result.body.accessToken;
 }
 
@@ -35,7 +38,7 @@ export async function requestJson<T>(
 ): Promise<{ status: number; body: T }> {
   const headers = new Headers(init.headers);
   headers.set('Content-Type', 'application/json');
-  const token = init.token ?? readSession()?.accessToken;
+  const token = readSession()?.accessToken ?? init.token;
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
   }
@@ -43,7 +46,16 @@ export async function requestJson<T>(
     headers.set('x-tenant-id', init.tenantId);
   }
   const { token: _token, tenantId: _tenant, skipRefresh, ...fetchInit } = init;
-  const response = await fetch(path, { ...fetchInit, headers });
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      ...fetchInit,
+      headers,
+      signal: fetchInit.signal ?? AbortSignal.timeout(20_000),
+    });
+  } catch {
+    return { status: 408, body: { message: 'Request timeout' } as T };
+  }
   if (response.status === 401 && !skipRefresh && !path.startsWith('/api/v1/auth/')) {
     refreshing ??= refreshAccessToken().finally(() => {
       refreshing = null;

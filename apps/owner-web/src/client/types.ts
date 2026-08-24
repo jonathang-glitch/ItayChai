@@ -63,6 +63,7 @@ export type IncomingOffer = {
   allowCover: boolean;
   allowSwap: boolean;
   prompt: string;
+  result?: string | null;
   createdAt: string;
   requesterName: string;
   requestedShift: ShiftItem | null;

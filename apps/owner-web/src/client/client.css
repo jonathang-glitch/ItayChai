@@ -602,9 +602,34 @@ input {
 .chat-body {
   flex: 1;
   min-height: 220px;
-  max-height: 58vh;
-  padding: 18px;
+  max-height: 52vh;
+  padding: 18px 18px 28px;
   overflow-y: auto;
+}
+
+.chat-dock {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #fff;
+  border-top: 1px solid var(--line);
+}
+
+.chat-dock button {
+  min-height: 52px;
+  border-radius: 14px;
+  font-size: 16px;
+}
+
+.chat-dock .yes {
+  background: var(--leaf);
+  color: #fff;
+}
+
+.chat-dock .no {
+  background: #f6e4d8;
+  color: #8a3d1d;
 }
 
 .hello,

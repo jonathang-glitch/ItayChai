@@ -75,6 +75,10 @@ export function swapCommitted(wanted: string, offered: string) {
   return `הוחלף. ${offered} אצלך. ${wanted} אצל הצד השני.`;
 }
 
+export function swapDonePeer(requester: string, receivedAt: Date, givenAt: Date) {
+  return `${requester} אישר את ההחלפה.\nקיבלת ${shiftTalkWithDate(receivedAt)}.\nנתת ${shiftTalkWithDate(givenAt)}.`;
+}
+
 export function noLongerNeeded() {
   return 'כבר לא צריך — נמצא פתרון.';
 }

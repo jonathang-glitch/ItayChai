@@ -5,15 +5,25 @@ import { presentShiftRequest } from './shifts.js';
 import { withTenantDb } from './tenant-db.js';
 
 const sessionWithMessages = {
-  messages: { orderBy: { createdAt: 'asc' as const } },
+  messages: { orderBy: { createdAt: 'desc' as const }, take: 16 },
   customer: { select: { id: true, name: true, email: true } },
   shiftRequest: {
     include: {
-      shift: true,
-      employee: true,
-      counterpart: true,
-      proposedShift: true,
-      offers: { include: { employee: true, proposedShift: true }, orderBy: { createdAt: 'asc' as const } },
+      shift: { select: { id: true, label: true, startsAt: true, endsAt: true } },
+      employee: { select: { displayName: true } },
+      counterpart: { select: { displayName: true } },
+      proposedShift: { select: { id: true, label: true, startsAt: true, endsAt: true } },
+      offers: {
+        select: {
+          id: true,
+          status: true,
+          allowCover: true,
+          allowSwap: true,
+          employee: { select: { displayName: true } },
+          proposedShift: { select: { startsAt: true, endsAt: true } },
+        },
+        orderBy: { createdAt: 'asc' as const },
+      },
     },
   },
 };
@@ -37,7 +47,7 @@ export function presentSession<
     createdAt: session.createdAt,
     customerUserId: session.customerUserId ?? null,
     customerName: session.customer?.name ?? null,
-    messages: session.messages,
+    messages: [...session.messages].reverse(),
     shiftRequest: presentShiftRequest(session.shiftRequest),
   };
 }
@@ -72,7 +82,7 @@ export async function findCustomerSessions(userId: string) {
     },
     include: sessionWithMessages,
     orderBy: { createdAt: 'desc' },
-    take: 8,
+    take: 4,
   });
   return rows.map(presentSession);
 }

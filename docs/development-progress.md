@@ -37,7 +37,7 @@ Full workflow: [docs/shift-agent-workflows.md](shift-agent-workflows.md).
 - אורי / `customer-a@example.com` — requester, this week plus a second Friday
 - דנה / `dana-a@example.com` — off Friday, Sunday evening then next Friday evening
 - יוסי / `yossi-a@example.com` — off Friday, Saturday morning then the next Saturday
-- רועי / `roi-a@example.com` — no upcoming shifts; Either shows cover only
+- רועי / `roi-a@example.com` — Thursday evening; can cover or swap
 - שירה / `shira-a@example.com` — off Friday, works Saturday evening
 - מיכל — roster only, works Friday, no login
 

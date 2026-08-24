@@ -18,7 +18,7 @@ The agent is a workflow. It does not invent eligible people. Commit is one datab
 | אורי | `customer-a@example.com` | Requester. Friday morning plus a full week, and a second Friday. |
 | דנה | `dana-a@example.com` | Off Friday. Next shift Sunday evening, then next Friday evening. |
 | יוסי | `yossi-a@example.com` | Off Friday. Next shift Saturday morning, then the Saturday after. |
-| רועי | `roi-a@example.com` | Off every day, no upcoming shifts. Cover only on Either. |
+| רועי | `roi-a@example.com` | Thursday evening. Can cover or swap when that day is free. |
 | שירה | `shira-a@example.com` | Off Friday. Works Saturday evening (same slot as אורי). |
 | מיכל | roster only | Working Friday morning. Must **not** get a Friday offer. |
 

@@ -6,7 +6,9 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { DEV_TENANT_ID } from '@itay-chai/contracts';
 import {
+  DANA_EMPLOYEE_ID,
   DANA_FREE_SHIFT,
+  ORI_EMPLOYEE_ID,
   DANA_SEED_SHIFTS,
   prisma,
   resetClientInbox,
@@ -72,7 +74,15 @@ async function home(token: string) {
   assert.equal(result.status, 200, result.text);
   return result.body as {
     shifts: { id: string }[];
-    offers: { id: string; allowCover: boolean; allowSwap: boolean; requesterName: string; swapChoices?: { id: string }[] }[];
+    offers: {
+      id: string;
+      status?: string;
+      result?: string | null;
+      allowCover: boolean;
+      allowSwap: boolean;
+      requesterName: string;
+      swapChoices?: { id: string }[];
+    }[];
   };
 }
 
@@ -99,12 +109,20 @@ test('cover: first yes takes Friday and cancels the other offer', async () => {
 
   const oriShifts = await home(oriToken);
   assert.ok(!oriShifts.shifts.some((shift) => shift.id === SEED_SHIFTS[0].id));
+  const friday = await prisma.shift.findUnique({ where: { id: SEED_SHIFTS[0].id } });
+  assert.equal(friday?.employeeId, DANA_EMPLOYEE_ID);
   const danaShifts = await home(danaToken);
   assert.ok(danaShifts.shifts.some((shift) => shift.id === SEED_SHIFTS[0].id));
   assert.ok(danaShifts.shifts.some((shift) => shift.id === DANA_SEED_SHIFTS[0].id));
+  const danaCover = danaShifts.offers.find((offer) => offer.id === danaHome.offers[0].id);
+  assert.match(danaCover?.result ?? '', /המשמרת אצלך/);
+  const danaNote = await prisma.message.findFirst({
+    where: { session: { customerUserId: SEED_USERS.danaA.id }, body: { contains: 'המשמרת אצלך' } },
+  });
+  assert.ok(danaNote, 'cover winner should get a confirmation');
 
   const yossiAfter = await home(yossiToken);
-  assert.equal(yossiAfter.offers[0].id, yossiHome.offers[0].id);
+  assert.ok(!yossiAfter.offers.some((offer) => offer.id === yossiHome.offers[0].id));
   const yossiOffer = await prisma.shiftOffer.findUnique({ where: { id: yossiHome.offers[0].id } });
   assert.equal(yossiOffer?.status, 'CANCELLED');
 });
@@ -113,7 +131,7 @@ test('swap: coworker yes then requester yes trades the two shifts', async () => 
   const created = await start('SWAP');
   assert.equal(created.shiftRequest.status, 'SEEKING');
   const names = created.shiftRequest.offers.map((offer) => offer.employeeName).sort();
-  assert.deepEqual(names, ['דנה', 'יוסי']);
+  assert.deepEqual(names, ['דנה', 'יוסי', 'רועי']);
   const danaHome = await home(danaToken);
   assert.equal(danaHome.offers[0].allowSwap, true);
   assert.equal(danaHome.offers[0].allowCover, false);
@@ -125,6 +143,10 @@ test('swap: coworker yes then requester yes trades the two shifts', async () => 
     .set(as(danaToken))
     .send({ action: 'swap', proposedShiftId: DANA_FREE_SHIFT.id });
   assert.equal(proposed.status, 200, proposed.text);
+  const danaWaiting = await home(danaToken);
+  const waiting = danaWaiting.offers.find((offer) => offer.id === danaHome.offers[0].id);
+  assert.equal(waiting?.status, 'ACCEPTED');
+  assert.match(waiting?.result ?? '', /שאלנו את המבקש/);
 
   const oriHome = await request(app.getHttpServer()).get('/api/v1/customer/requests').set(as(oriToken));
   const row = (oriHome.body as { id: string; shiftRequest: { status: string } }[]).find((item) => item.id === created.id);
@@ -140,12 +162,22 @@ test('swap: coworker yes then requester yes trades the two shifts', async () => 
   );
   assert.equal(committed?.shiftRequest.status, 'COMMITTED');
 
+  const friday = await prisma.shift.findUnique({ where: { id: SEED_SHIFTS[0].id } });
+  const wednesday = await prisma.shift.findUnique({ where: { id: DANA_FREE_SHIFT.id } });
+  assert.equal(friday?.employeeId, DANA_EMPLOYEE_ID);
+  assert.equal(wednesday?.employeeId, ORI_EMPLOYEE_ID);
   const oriShifts = await home(oriToken);
   assert.ok(!oriShifts.shifts.some((shift) => shift.id === SEED_SHIFTS[0].id));
   assert.ok(oriShifts.shifts.some((shift) => shift.id === DANA_FREE_SHIFT.id));
   const danaShifts = await home(danaToken);
   assert.ok(danaShifts.shifts.some((shift) => shift.id === SEED_SHIFTS[0].id));
   assert.ok(!danaShifts.shifts.some((shift) => shift.id === DANA_FREE_SHIFT.id));
+  const danaDone = danaShifts.offers.find((offer) => offer.id === danaHome.offers[0].id);
+  assert.match(danaDone?.result ?? '', /אישר את ההחלפה/);
+  const danaNote = await prisma.message.findFirst({
+    where: { session: { customerUserId: SEED_USERS.danaA.id }, body: { contains: 'אישר את ההחלפה' } },
+  });
+  assert.ok(danaNote, 'swap counterpart should get a confirmation');
 });
 
 test('either: cover wins immediately and a later swap is not needed', async () => {
@@ -158,7 +190,7 @@ test('either: cover wins immediately and a later swap is not needed', async () =
   assert.equal(yossiHome.offers[0].allowCover, true);
   assert.equal(yossiHome.offers[0].allowSwap, true);
   assert.equal(roiHome.offers[0].allowCover, true);
-  assert.equal(roiHome.offers[0].allowSwap, false);
+  assert.equal(roiHome.offers[0].allowSwap, true);
 
   const covered = await request(app.getHttpServer())
     .post(`/api/v1/customer/offers/${yossiHome.offers[0].id}`)
