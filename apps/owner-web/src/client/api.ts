@@ -147,6 +147,14 @@ export function confirmShiftMatch(token: string, tenantId: string, sessionId: st
   });
 }
 
+export function cancelShiftSearch(token: string, tenantId: string, sessionId: string) {
+  return requestJson<CustomerHomeData>(`/api/v1/customer/requests/${sessionId}/cancel`, {
+    method: 'POST',
+    token,
+    tenantId,
+  });
+}
+
 export function decideShiftRequest(
   token: string,
   tenantId: string,

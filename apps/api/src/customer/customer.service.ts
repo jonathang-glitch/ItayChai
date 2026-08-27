@@ -11,6 +11,7 @@ import {
   type ShiftRequestKind,
 } from '@itay-chai/contracts';
 import {
+  cancelShiftSearch,
   confirmMatch,
   createShiftRequestForSession,
   findCustomerSessions,
@@ -54,7 +55,7 @@ export async function listCustomerHome() {
 
 function mapAgentError(error: unknown): never {
   const message = error instanceof Error ? error.message : 'Shift request failed';
-  if (message === 'Offer not found' || message === 'Match not found') {
+  if (message === 'Offer not found' || message === 'Match not found' || message === 'Search not found') {
     throw new NotFoundException(message);
   }
   if (message === 'כבר נתפס.') {
@@ -75,6 +76,15 @@ export async function answerOffer(offerId: string, action: ShiftOfferAction, pro
 export async function answerMatch(sessionId: string, action: ShiftMatchAction) {
   try {
     await confirmMatch(sessionId, action);
+  } catch (error) {
+    mapAgentError(error);
+  }
+  return listCustomerHome();
+}
+
+export async function cancelCustomerSearch(sessionId: string) {
+  try {
+    await cancelShiftSearch(sessionId);
   } catch (error) {
     mapAgentError(error);
   }

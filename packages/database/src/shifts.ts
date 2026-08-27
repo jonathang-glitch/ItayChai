@@ -6,6 +6,7 @@ import {
   type ShiftRequestKind,
 } from '@itay-chai/contracts';
 import { prisma } from './index.js';
+import { closeOffersForDecision } from './shift-agent.js';
 import { intentText, searchSummary, shiftTalk } from './shift-copy.js';
 
 const ACTION_TO_STATUS = {
@@ -207,10 +208,7 @@ export async function decideShiftRequest(sessionId: string, action: ShiftDecisio
     },
   });
   if (action !== 'approve') {
-    await prisma.shiftOffer.updateMany({
-      where: { requestId: updated.id, status: { in: ['PENDING', 'QUEUED', 'ACCEPTED'] } },
-      data: { status: 'CANCELLED', respondedAt: new Date() },
-    });
+    await closeOffersForDecision(updated.id, context.tenantId);
   }
   const afterApprove =
     action === 'approve' && updated.shiftId

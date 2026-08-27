@@ -77,6 +77,7 @@ export const COPY = {
   offerDeclined: 'סימנו שלא.',
   confirmMatch: 'מאשר החלפה',
   refuseMatch: 'לא מתאים',
+  cancelSearch: 'בטל חיפוש',
   noShifts: 'אין משמרות ברשימה.',
   loadingShifts: 'טוענים משמרות…',
   shiftFor: 'משמרת',

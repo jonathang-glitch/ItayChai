@@ -58,6 +58,8 @@ export {
   listIncomingOffers,
   respondToOffer,
   confirmMatch,
+  cancelShiftSearch,
+  closeOffersForDecision,
 } from './shift-agent.js';
 export {
   claimIdempotency,

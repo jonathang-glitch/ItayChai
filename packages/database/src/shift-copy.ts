@@ -83,6 +83,14 @@ export function noLongerNeeded() {
   return 'כבר לא צריך — נמצא פתרון.';
 }
 
+export function searchCancelled() {
+  return 'החיפוש בוטל.';
+}
+
+export function requestCancelled() {
+  return 'הבקשה בוטלה.';
+}
+
 export function alreadyTaken() {
   return 'כבר נתפס.';
 }

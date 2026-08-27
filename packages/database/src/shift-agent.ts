@@ -191,6 +191,7 @@ export async function listIncomingOffers(userId: string) {
         { status: 'PENDING', request: { status: { in: [...ACTIVE_SEARCH] } } },
         { status: 'ACCEPTED', request: { status: { in: ['MATCH_PROPOSED', 'COMMITTED'] } } },
         { status: 'QUEUED', request: { status: { in: [...ACTIVE_SEARCH] } } },
+        { status: 'CANCELLED', request: { status: { in: ['COMMITTED', 'CANCELLED', 'REJECTED'] } } },
       ],
     },
     include: {
@@ -237,6 +238,9 @@ function offerResult(
       return copy.swapDonePeer(offer.request.employee.displayName, wantedAt, offeredAt);
     }
     return copy.coverCommitted(offer.request.employee.displayName, wantedLabel(wantedAt), true);
+  }
+  if (offer.status === 'CANCELLED') {
+    return offer.request.status === 'COMMITTED' ? copy.noLongerNeeded() : copy.requestCancelled();
   }
   return null;
 }
@@ -414,9 +418,11 @@ async function commitCover(
     where: { id: offer.id },
     data: { status: 'ACCEPTED', respondedAt: new Date() },
   });
-  await tx.shiftOffer.updateMany({
-    where: { requestId: offer.request.id, id: { not: offer.id }, status: { in: [...OPEN_OFFER] } },
-    data: { status: 'CANCELLED', respondedAt: new Date() },
+  await closeOpenOffers(tx, {
+    requestId: offer.request.id,
+    tenantId: offer.request.tenantId,
+    statuses: ['PENDING', 'QUEUED'],
+    message: copy.noLongerNeeded(),
   });
   await writeOutbound(
     tx,
@@ -504,6 +510,45 @@ async function proposeSwap(
   return { ok: true };
 }
 
+export async function cancelShiftSearch(sessionId: string) {
+  const { tenantId, userId } = requireTenantContext();
+  if (!userId) {
+    throw new Error('User is required');
+  }
+  return prisma.$transaction(async (tx) => {
+    const request = await tx.shiftSwapRequest.findFirst({
+      where: { tenantId, sessionId, employee: { userId } },
+    });
+    if (!request || !ACTIVE_SEARCH.includes(request.status as (typeof ACTIVE_SEARCH)[number])) {
+      throw new Error('Search not found');
+    }
+    const moved = await tx.shiftSwapRequest.updateMany({
+      where: { id: request.id, status: { in: [...ACTIVE_SEARCH] } },
+      data: { status: 'CANCELLED', decidedAt: new Date() },
+    });
+    if (moved.count !== 1) {
+      throw new Error(copy.alreadyTaken());
+    }
+    await closeOpenOffers(tx, {
+      requestId: request.id,
+      tenantId,
+      message: copy.requestCancelled(),
+    });
+    await writeOutbound(tx, tenantId, sessionId, copy.searchCancelled());
+    return { ok: true };
+  });
+}
+
+export async function closeOffersForDecision(requestId: string, tenantId: string) {
+  return prisma.$transaction((tx) =>
+    closeOpenOffers(tx, {
+      requestId,
+      tenantId,
+      message: copy.requestCancelled(),
+    }),
+  );
+}
+
 export async function confirmMatch(sessionId: string, action: ShiftMatchAction) {
   const { tenantId, userId } = requireTenantContext();
   if (!userId) {
@@ -542,9 +587,11 @@ export async function confirmMatch(sessionId: string, action: ShiftMatchAction) 
         where: { id: request.proposedShift.id },
         data: { employeeId: request.employeeId },
       });
-      await tx.shiftOffer.updateMany({
-        where: { requestId: request.id, status: { in: ['PENDING', 'QUEUED'] } },
-        data: { status: 'CANCELLED', respondedAt: new Date() },
+      await closeOpenOffers(tx, {
+        requestId: request.id,
+        tenantId,
+        statuses: ['PENDING', 'QUEUED'],
+        message: copy.noLongerNeeded(),
       });
       const wanted = wantedLabel(request.shift.startsAt);
       const offered = wantedLabel(request.proposedShift.startsAt);
@@ -699,6 +746,34 @@ async function maybeUnfilled(
     request.sessionId,
     copy.unfilled(shiftLabelFromStart(request.shift.startsAt)),
   );
+}
+
+async function closeOpenOffers(
+  tx: Tx,
+  input: {
+    requestId: string;
+    tenantId: string;
+    statuses?: readonly string[];
+    message: string;
+  },
+) {
+  const leftovers = await tx.shiftOffer.findMany({
+    where: {
+      requestId: input.requestId,
+      status: { in: [...(input.statuses ?? OPEN_OFFER)] },
+    },
+    select: { id: true, employeeId: true },
+  });
+  if (leftovers.length === 0) {
+    return;
+  }
+  await tx.shiftOffer.updateMany({
+    where: { id: { in: leftovers.map((row) => row.id) } },
+    data: { status: 'CANCELLED', respondedAt: new Date() },
+  });
+  for (const leftover of leftovers) {
+    await writePeerNotice(tx, input.tenantId, leftover.employeeId, input.message, input.requestId);
+  }
 }
 
 export { ACTIVE_SEARCH };

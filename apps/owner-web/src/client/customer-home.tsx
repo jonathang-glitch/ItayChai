@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { confirmShiftMatch, listCustomerHome, respondToOffer, sendCustomerMessage } from './api';
+import { cancelShiftSearch, confirmShiftMatch, listCustomerHome, respondToOffer, sendCustomerMessage } from './api';
 import { Conversation } from './conversation';
 import { COPY, statusLabel, storeLabel } from './copy';
 import { flattenMessages, formatShiftWhen, isFromLastDay, isLiveRequest, shiftTitle } from './format';
@@ -199,6 +199,27 @@ export function CustomerHome({ session }: Props) {
     await answerOffer(offer, action, proposedShiftId);
   }
 
+  async function cancelSearch(item: RequestItem) {
+    if (!membership || acting.current) {
+      return;
+    }
+    acting.current = true;
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await cancelShiftSearch(token(), membership.tenantId, item.id);
+      if (result.status < 200 || result.status >= 300) {
+        throw new Error(requestError(result.body));
+      }
+      applyHome(result.body, session.userId, setItems, setOffers, setShifts);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : COPY.down);
+    } finally {
+      acting.current = false;
+      setBusy(false);
+    }
+  }
+
   async function answerMatch(item: RequestItem, action: 'accept' | 'decline') {
     if (!membership || acting.current) {
       return;
@@ -237,6 +258,7 @@ export function CustomerHome({ session }: Props) {
   const store = storeLabel(membership?.businessUnitName);
   const pendingOffers = liveOffers(offers);
   const proposed = liveItems.find((item) => item.shiftRequest?.status === 'MATCH_PROPOSED');
+  const searching = liveItems.find((item) => LIVE_OFFER.has(item.shiftRequest?.status ?? ''));
   const inChat = messages.length > 0 || pendingOffers.length > 0;
   const showComposer = compose || !inChat;
 
@@ -283,6 +305,11 @@ export function CustomerHome({ session }: Props) {
               {COPY.refuseMatch}
             </button>
           </div>
+        ) : null}
+        {searching ? (
+          <button type="button" className="composer-toggle" disabled={busy} onClick={() => void cancelSearch(searching)}>
+            {COPY.cancelSearch}
+          </button>
         ) : null}
         {showComposer ? (
           <div className="shift-composer">
