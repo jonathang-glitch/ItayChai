@@ -72,6 +72,8 @@ export const COPY = {
   acceptYes: 'כן',
   declineOffer: 'דחייה',
   offerQueued: 'קיבלנו. נעדכן אם יהיה צורך.',
+  swapWaiting: 'שאלנו את המבקש. נעדכן.',
+  swapDone: 'הוחלף.',
   offerCancelled: 'כבר לא צריך — נמצא פתרון.',
   offerAccepted: 'תודה. זה נשמר.',
   offerDeclined: 'סימנו שלא.',

@@ -9,6 +9,10 @@ async function readJson<T>(response: Response): Promise<T> {
   return JSON.parse(text) as T;
 }
 
+// Tenant transactions are allowed 10s to acquire a connection plus 20s to run, so giving up
+// earlier than that reports failure for writes the server is still committing.
+const REQUEST_TIMEOUT_MS = 45_000;
+
 let refreshing: Promise<string | null> | null = null;
 
 async function refreshAccessToken() {
@@ -51,7 +55,7 @@ export async function requestJson<T>(
     response = await fetch(path, {
       ...fetchInit,
       headers,
-      signal: fetchInit.signal ?? AbortSignal.timeout(20_000),
+      signal: fetchInit.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch {
     return { status: 408, body: { message: 'Request timeout' } as T };

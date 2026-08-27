@@ -23,13 +23,18 @@ function requestError(body: unknown) {
   if (message === 'Invalid token' || message === 'Invalid refresh token' || message === 'Missing bearer token') {
     return COPY.sessionExpired;
   }
-  if (message === 'Request timeout') {
+  if (
+    message === 'Request timeout' ||
+    message === 'Internal server error' ||
+    message === 'Service Unavailable' ||
+    /Can't reach database|P1001|P1017/i.test(message)
+  ) {
     return COPY.down;
   }
   return message || COPY.down;
 }
 
-const TAKEN = new Set(['APPROVED', 'COMMITTED']);
+const TAKEN = new Set(['APPROVED', 'COMMITTED', 'SEEKING', 'MATCH_PROPOSED']);
 
 const LIVE_OFFER = new Set(['SEEKING', 'MATCH_PROPOSED']);
 
@@ -55,8 +60,15 @@ function applyHome(
   setItems: (items: RequestItem[]) => void,
   setOffers: (offers: IncomingOffer[]) => void,
   setShifts: (shifts: ShiftItem[]) => void,
+  keepCommitted?: Set<string>,
 ) {
-  const nextItems = body.requests.filter((item) => isFromLastDay(item.createdAt));
+  const nextItems = body.requests
+    .filter((item) => isLiveRequest(item) || isFromLastDay(item.createdAt))
+    .map((item) =>
+      keepCommitted?.has(item.id) && item.shiftRequest?.status === 'MATCH_PROPOSED' && item.shiftRequest
+        ? { ...item, shiftRequest: { ...item.shiftRequest, status: 'COMMITTED' } }
+        : item,
+    );
   const visible = withoutTaken(body.shifts, nextItems);
   setItems(nextItems);
   setOffers(body.offers ?? []);
@@ -77,10 +89,14 @@ export function CustomerHome({ session }: Props) {
     () => (session.shifts ?? readCachedShifts(session.userId)).length === 0,
   );
   const [error, setError] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
   const [compose, setCompose] = useState(false);
+  const [swapOffer, setSwapOffer] = useState<IncomingOffer | null>(null);
+  const [swapShiftId, setSwapShiftId] = useState('');
   const inflight = useRef(false);
   const acting = useRef(false);
   const waitingRef = useRef(false);
+  const committedRef = useRef(new Set<string>());
   const scroller = useRef<HTMLDivElement>(null);
   const seen = useRef(0);
 
@@ -101,13 +117,16 @@ export function CustomerHome({ session }: Props) {
       inflight.current = true;
       try {
         const home = await listCustomerHome(token(), tenantId);
-        if (cancelled || home.status !== 200) {
+        if (cancelled) {
           return;
         }
-        applyHome(home.body, session.userId, setItems, setOffers, setShifts);
-        waitingRef.current = (home.body.offers ?? []).some(
-          (offer) => offer.status === 'ACCEPTED' && offer.requestStatus === 'MATCH_PROPOSED',
-        );
+        if (home.status === 200) {
+          applyHome(home.body, session.userId, setItems, setOffers, setShifts, committedRef.current);
+          waitingRef.current = (home.body.offers ?? []).some(
+            (offer) => offer.status === 'ACCEPTED' && offer.requestStatus === 'MATCH_PROPOSED',
+          );
+        }
+        setReady(true);
         setLoadingShifts(false);
       } finally {
         inflight.current = false;
@@ -169,6 +188,27 @@ export function CustomerHome({ session }: Props) {
     acting.current = true;
     setBusy(true);
     setError(null);
+    setSwapOffer(null);
+    if (action === 'decline') {
+      setOffers((current) => current.filter((row) => row.id !== offer.id));
+    } else if (action === 'swap') {
+      waitingRef.current = true;
+      setOffers((current) =>
+        current.map((row) =>
+          row.id === offer.id
+            ? { ...row, status: 'ACCEPTED', requestStatus: 'MATCH_PROPOSED', result: COPY.swapWaiting }
+            : row,
+        ),
+      );
+    } else if (action === 'cover' && offer.requestedShift) {
+      const taken = offer.requestedShift;
+      setOffers((current) =>
+        current.map((row) =>
+          row.id === offer.id ? { ...row, status: 'ACCEPTED', requestStatus: 'COMMITTED', result: COPY.offerAccepted } : row,
+        ),
+      );
+      setShifts((current) => (current.some((shift) => shift.id === taken.id) ? current : [...current, taken]));
+    }
     try {
       const result = await respondToOffer(
         token(),
@@ -180,10 +220,13 @@ export function CustomerHome({ session }: Props) {
       if (result.status < 200 || result.status >= 300) {
         throw new Error(requestError(result.body));
       }
-      applyHome(result.body, session.userId, setItems, setOffers, setShifts);
-      waitingRef.current = (result.body.offers ?? []).some(
-        (row) => row.status === 'ACCEPTED' && row.requestStatus === 'MATCH_PROPOSED',
-      );
+      const home = await listCustomerHome(token(), membership.tenantId);
+      if (home.status === 200 && home.body.requests) {
+        applyHome(home.body, session.userId, setItems, setOffers, setShifts, committedRef.current);
+        waitingRef.current = (home.body.offers ?? []).some(
+          (row) => row.status === 'ACCEPTED' && row.requestStatus === 'MATCH_PROPOSED',
+        );
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : COPY.down);
     } finally {
@@ -192,11 +235,15 @@ export function CustomerHome({ session }: Props) {
     }
   }
 
-  async function takeOffer(offer: IncomingOffer, action: 'cover' | 'swap' | 'decline', proposedShiftId?: string) {
-    if (action === 'decline') {
-      setOffers((current) => current.filter((row) => row.id !== offer.id));
+  function startSwap(offer: IncomingOffer) {
+    const only = offer.swapChoices[0];
+    if (offer.swapChoices.length === 1 && only) {
+      void answerOffer(offer, 'swap', only.id);
+      return;
     }
-    await answerOffer(offer, action, proposedShiftId);
+    setCompose(false);
+    setSwapOffer(offer);
+    setSwapShiftId(only?.id ?? '');
   }
 
   async function answerMatch(item: RequestItem, action: 'accept' | 'decline') {
@@ -206,22 +253,60 @@ export function CustomerHome({ session }: Props) {
     acting.current = true;
     setBusy(true);
     setError(null);
-    if (action === 'accept') {
+    if (action === 'decline') {
       setItems((current) =>
         current.map((row) =>
           row.id === item.id && row.shiftRequest
-            ? { ...row, shiftRequest: { ...row.shiftRequest, status: 'COMMITTED' } }
+            ? { ...row, shiftRequest: { ...row.shiftRequest, status: 'SEEKING' } }
             : row,
         ),
       );
     }
+    if (action === 'accept') {
+      committedRef.current.add(item.id);
+      const wanted = item.shiftRequest?.shift;
+      const offered = item.shiftRequest?.proposedShift;
+      setItems((current) =>
+        current.map((row) =>
+          row.id === item.id && row.shiftRequest
+            ? {
+                ...row,
+                shiftRequest: { ...row.shiftRequest, status: 'COMMITTED' },
+                messages: [
+                  ...row.messages,
+                  {
+                    id: `local:${item.id}:done`,
+                    direction: 'OUTBOUND',
+                    body: COPY.swapDone,
+                    createdAt: new Date().toISOString(),
+                  },
+                ],
+              }
+            : row,
+        ),
+      );
+      setShifts((current) => {
+        let next = wanted ? current.filter((shift) => shift.id !== wanted.id) : current;
+        if (offered && !next.some((shift) => shift.id === offered.id)) {
+          next = [...next, offered];
+        }
+        return next;
+      });
+    }
     try {
       const result = await confirmShiftMatch(token(), membership.tenantId, item.id, action);
       if (result.status < 200 || result.status >= 300) {
-        throw new Error(COPY.down);
+        throw new Error(requestError(result.body));
       }
-      applyHome(result.body, session.userId, setItems, setOffers, setShifts);
     } catch (reason) {
+      committedRef.current.delete(item.id);
+      setItems((current) =>
+        current.map((row) =>
+          row.id === item.id && row.shiftRequest
+            ? { ...row, shiftRequest: { ...row.shiftRequest, status: 'MATCH_PROPOSED' } }
+            : row,
+        ),
+      );
       setError(reason instanceof Error ? reason.message : COPY.down);
     } finally {
       acting.current = false;
@@ -260,7 +345,7 @@ export function CustomerHome({ session }: Props) {
           </div>
         </header>
         <div className="chat-body" ref={scroller}>
-          {!inChat ? <p className="hello">{COPY.customerHello}</p> : null}
+          {!inChat ? <p className="hello">{ready ? COPY.customerHello : COPY.loadingShifts}</p> : null}
           {inChat ? (
             <Conversation messages={messages} mine="INBOUND">
               {pendingOffers.map((offer) => (
@@ -268,13 +353,49 @@ export function CustomerHome({ session }: Props) {
                   key={offer.id}
                   offer={offer}
                   busy={busy}
-                  onAnswer={(row, action, shift) => void takeOffer(row, action, shift)}
+                  picking={swapOffer?.id === offer.id}
+                  onSwap={startSwap}
+                  onAnswer={(row, action, shift) => void answerOffer(row, action, shift)}
                 />
               ))}
             </Conversation>
           ) : null}
         </div>
-        {proposed ? (
+        {swapOffer ? (
+          <div className="chat-dock swap-pick">
+            <p className="offer-hint">{COPY.pickSwapShift}</p>
+            <div className="offer-picks">
+              {swapOffer.swapChoices.map((shift) => (
+                <button
+                  key={shift.id}
+                  type="button"
+                  className={`relevant${swapShiftId === shift.id ? ' on' : ''}`}
+                  disabled={busy}
+                  onClick={() => setSwapShiftId(shift.id)}
+                >
+                  <span>
+                    <strong>{shiftTitle(shift)}</strong>
+                    <em>{formatShiftWhen(shift.startsAt)}</em>
+                  </span>
+                  <b>{COPY.relevantDay}</b>
+                </button>
+              ))}
+            </div>
+            <div className="chat-dock-row">
+              <button
+                type="button"
+                className="yes"
+                disabled={busy || !swapShiftId}
+                onClick={() => void answerOffer(swapOffer, 'swap', swapShiftId)}
+              >
+                {COPY.confirmMatch}
+              </button>
+              <button type="button" className="no" disabled={busy} onClick={() => setSwapOffer(null)}>
+                {COPY.back}
+              </button>
+            </div>
+          </div>
+        ) : proposed ? (
           <div className="chat-dock">
             <button type="button" className="yes" disabled={busy} onClick={() => void answerMatch(proposed, 'accept')}>
               {COPY.confirmMatch}
@@ -284,7 +405,7 @@ export function CustomerHome({ session }: Props) {
             </button>
           </div>
         ) : null}
-        {showComposer ? (
+        {swapOffer || proposed || !ready ? null : showComposer ? (
           <div className="shift-composer">
             <p className="shift-kicker">{COPY.pickShift}</p>
             {loadingShifts && visibleShifts.length === 0 ? <p className="hello">{COPY.loadingShifts}</p> : null}

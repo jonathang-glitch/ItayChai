@@ -10,10 +10,11 @@
   "scripts": {
     "generate": "prisma generate",
     "migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
+    "migrate:test": "dotenv -e ../../.env.test -- prisma migrate deploy",
     "seed": "tsx --env-file=../../.env src/seed.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "tsx --env-file=../../.env --test src/*.test.ts"
+    "test": "tsx --env-file=../../.env.test --test src/*.test.ts"
   },
   "prisma": {
     "seed": "tsx src/seed.ts"

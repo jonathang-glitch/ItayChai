@@ -108,11 +108,23 @@ export function isLiveRequest(item: RequestItem) {
 }
 
 export function flattenMessages(items: RequestItem[]) {
+  const seen = new Set<string>();
   return [...items]
-    .filter((item) => isFromLastDay(item.createdAt) && isLiveRequest(item))
+    .filter(isLiveRequest)
     .reverse()
     .flatMap((item) => item.messages)
-    .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+    .filter((message) => {
+      const minute = message.createdAt.slice(0, 16);
+      const key = message.id || `${minute}:${message.body}`;
+      const twin = `${minute}:${message.body}`;
+      if (seen.has(key) || seen.has(twin)) {
+        return false;
+      }
+      seen.add(key);
+      seen.add(twin);
+      return true;
+    });
 }
 
 export function isOpen(item: RequestItem | string) {
@@ -137,6 +149,9 @@ export function isDone(item: RequestItem) {
 }
 
 export function onOwnerDesk(item: RequestItem) {
+  if (item.shiftRequest && isLiveRequest(item)) {
+    return true;
+  }
   if (!isFromLastDay(item.createdAt)) {
     return false;
   }

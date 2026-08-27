@@ -180,13 +180,10 @@ export async function startShiftSearch(requestId: string) {
 
 export async function listIncomingOffers(userId: string) {
   const { tenantId } = requireTenantContext();
-  const since = new Date();
-  since.setDate(since.getDate() - 2);
   const rows = await prisma.shiftOffer.findMany({
     where: {
       tenantId,
       employee: { userId },
-      createdAt: { gte: since },
       OR: [
         { status: 'PENDING', request: { status: { in: [...ACTIVE_SEARCH] } } },
         { status: 'ACCEPTED', request: { status: { in: ['MATCH_PROPOSED', 'COMMITTED'] } } },

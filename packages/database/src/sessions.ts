@@ -82,7 +82,7 @@ export async function findCustomerSessions(userId: string) {
     },
     include: sessionWithMessages,
     orderBy: { createdAt: 'desc' },
-    take: 4,
+    take: 16,
   });
   return rows.map(presentSession);
 }

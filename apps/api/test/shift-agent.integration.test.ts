@@ -157,7 +157,8 @@ test('swap: coworker yes then requester yes trades the two shifts', async () => 
     .set(as(oriToken))
     .send({ action: 'accept' });
   assert.equal(confirmed.status, 200, confirmed.text);
-  const committed = (confirmed.body.requests as { id: string; shiftRequest: { status: string } }[]).find(
+  const afterAccept = await request(app.getHttpServer()).get('/api/v1/customer/requests').set(as(oriToken));
+  const committed = (afterAccept.body as { id: string; shiftRequest: { status: string } }[]).find(
     (item) => item.id === created.id,
   );
   assert.equal(committed?.shiftRequest.status, 'COMMITTED');
@@ -233,7 +234,8 @@ test('either: refused swap commits the queued cover', async () => {
     .set(as(oriToken))
     .send({ action: 'decline' });
   assert.equal(refused.status, 200, refused.text);
-  const committed = (refused.body.requests as { id: string; shiftRequest: { status: string } }[]).find(
+  const afterRefuse = await request(app.getHttpServer()).get('/api/v1/customer/requests').set(as(oriToken));
+  const committed = (afterRefuse.body as { id: string; shiftRequest: { status: string } }[]).find(
     (item) => item.id === created.id,
   );
   assert.equal(committed?.shiftRequest.status, 'COMMITTED');

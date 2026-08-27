@@ -24,6 +24,10 @@ export default tseslint.config(
           rules: [{ from: 'package', disallow: ['app'] }],
         },
       ],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true },
+      ],
     },
   },
 );

@@ -15,6 +15,7 @@
     "infra:down": "docker compose down && supabase stop",
     "db:generate": "pnpm --filter @itay-chai/database generate",
     "db:migrate": "pnpm --filter @itay-chai/database migrate:deploy",
+    "db:migrate:test": "pnpm --filter @itay-chai/database migrate:test",
     "db:seed": "pnpm --filter @itay-chai/database seed",
     "db:setup": "pnpm db:generate && pnpm db:migrate && pnpm db:seed",
     "test": "pnpm --filter @itay-chai/domain test && pnpm --filter @itay-chai/auth test && pnpm --filter @itay-chai/database test && pnpm --filter @itay-chai/api test",

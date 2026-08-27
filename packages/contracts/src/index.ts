@@ -98,7 +98,9 @@ export function jerusalemWeekday(value: Date | string) {
 
 export function jerusalemWeekKey(value: Date | string) {
   const day = jerusalemDayKey(value);
-  const [year, month, date] = day.split('-').map(Number);
+  const year = Number(day.slice(0, 4));
+  const month = Number(day.slice(5, 7));
+  const date = Number(day.slice(8, 10));
   const start = Date.UTC(year, month - 1, date) - jerusalemWeekday(value) * 86_400_000;
   const sunday = new Date(start);
   return `${sunday.getUTCFullYear()}-${String(sunday.getUTCMonth() + 1).padStart(2, '0')}-${String(sunday.getUTCDate()).padStart(2, '0')}`;
