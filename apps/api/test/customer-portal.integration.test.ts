@@ -8,6 +8,7 @@ import { DEV_TENANT_ID, ROLE_NAMES, SECOND_TENANT_ID, shiftLabelFromStart } from
 import {
   appPrisma,
   prisma,
+  resetClientInbox,
   seedIdentity,
   SEED_PASSWORD,
   SEED_SHIFTS,
@@ -22,6 +23,7 @@ let ownerBToken: string;
 
 before(async () => {
   await seedIdentity();
+  await resetClientInbox();
   app = await NestFactory.create(AppModule, { logger: false });
   await app.init();
 

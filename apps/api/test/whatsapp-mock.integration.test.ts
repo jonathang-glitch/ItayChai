@@ -6,7 +6,7 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AGENT_SESSION_QUEUE, DEV_TENANT_ID, MOCK_WHATSAPP_REPLY } from '@itay-chai/contracts';
 import { loadEnv } from '@itay-chai/config';
-import { appPrisma, prisma } from '@itay-chai/database';
+import { appPrisma, prisma, resetClientInbox } from '@itay-chai/database';
 import { createBullmqConsumer, createBullmqPublisher } from '@itay-chai/integrations';
 import { AppModule } from '../src/app.module.js';
 import { relayOnce } from '../../outbox-relay/src/relay.js';
@@ -31,6 +31,7 @@ async function waitForCompleted(sessionId: string) {
 }
 
 before(async () => {
+  await resetClientInbox();
   await prisma.tenant.upsert({
     where: { id: DEV_TENANT_ID },
     create: { id: DEV_TENANT_ID, name: 'Development Tenant', status: 'active' },
