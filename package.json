@@ -23,6 +23,10 @@
     "format": "prettier --write ."
   },
   "pnpm": {
+    "overrides": {
+      "handlebars": "^4.7.9",
+      "deepmerge-ts": "^8.0.0"
+    },
     "onlyBuiltDependencies": [
       "@nestjs/core",
       "@prisma/client",
