@@ -45,6 +45,8 @@ export async function requestJson<T>(
   if (init.tenantId) {
     headers.set('x-tenant-id', init.tenantId);
   }
+  // token / tenantId are auth extras, not fetch() options
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { token: _token, tenantId: _tenant, skipRefresh, ...fetchInit } = init;
   let response: Response;
   try {

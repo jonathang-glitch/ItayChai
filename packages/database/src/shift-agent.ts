@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import type { Prisma, ShiftOfferStatus } from '@prisma/client';
 import { requireTenantContext } from '@itay-chai/auth';
 import {
   jerusalemDayKey,
@@ -421,7 +421,7 @@ async function commitCover(
   await closeOpenOffers(tx, {
     requestId: offer.request.id,
     tenantId: offer.request.tenantId,
-    statuses: ['PENDING', 'QUEUED'],
+    statuses: ['PENDING', 'QUEUED'] as const,
     message: copy.noLongerNeeded(),
   });
   await writeOutbound(
@@ -590,7 +590,7 @@ export async function confirmMatch(sessionId: string, action: ShiftMatchAction) 
       await closeOpenOffers(tx, {
         requestId: request.id,
         tenantId,
-        statuses: ['PENDING', 'QUEUED'],
+        statuses: ['PENDING', 'QUEUED'] as const,
         message: copy.noLongerNeeded(),
       });
       const wanted = wantedLabel(request.shift.startsAt);
@@ -753,7 +753,7 @@ async function closeOpenOffers(
   input: {
     requestId: string;
     tenantId: string;
-    statuses?: readonly string[];
+    statuses?: readonly ShiftOfferStatus[];
     message: string;
   },
 ) {
