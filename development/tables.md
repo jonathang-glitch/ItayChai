@@ -29,9 +29,10 @@ Short why for each table in Docker Postgres (`127.0.0.1:54322`).
 
 | Table | Why we have it |
 |---|---|
-| `employees` | A person on the store roster. אורי is seeded here. |
+| `employees` | A person on the store roster. אורי, דנה, יוסי, רועי, שירה, and מיכל are seeded here. |
 | `shifts` | One planned shift for an employee (day and hours). |
-| `shift_swap_requests` | אורי asked to change a shift; נועה’s decision lives here. |
+| `shift_swap_requests` | אורי asked to change a shift; cover, swap, or either, plus the outcome. |
+| `shift_offers` | One ask sent to a coworker for that request. |
 | `agent_sessions` | One work item from a customer message, and its status. |
 | `session_transitions` | Each status change, so we can prove the path. |
 | `messages` | Inbound and outbound text for that job. |

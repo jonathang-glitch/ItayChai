@@ -47,9 +47,28 @@ enum DlqStatus {
 
 enum ShiftSwapStatus {
   OPEN
+  SEEKING
+  MATCH_PROPOSED
+  COMMITTED
+  UNFILLED
+  CANCELLED
   APPROVED
   REJECTED
   NEEDS_REPLACEMENT
+}
+
+enum ShiftRequestKind {
+  COVER
+  SWAP
+  EITHER
+}
+
+enum ShiftOfferStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  QUEUED
+  CANCELLED
 }
 
 model Tenant {
@@ -79,6 +98,7 @@ model Tenant {
   employees          Employee[]
   shifts             Shift[]
   shiftSwapRequests  ShiftSwapRequest[]
+  shiftOffers        ShiftOffer[]
 
   @@map("tenants")
 }
@@ -473,11 +493,13 @@ model Employee {
   roleLabel      String   @map("role_label")
   createdAt      DateTime @default(now()) @map("created_at")
 
-  tenant       Tenant             @relation(fields: [tenantId], references: [id])
-  businessUnit BusinessUnit       @relation(fields: [businessUnitId], references: [id])
-  user         User?              @relation(fields: [userId], references: [id])
-  shifts       Shift[]
-  swapRequests ShiftSwapRequest[]
+  tenant         Tenant              @relation(fields: [tenantId], references: [id])
+  businessUnit   BusinessUnit        @relation(fields: [businessUnitId], references: [id])
+  user           User?               @relation(fields: [userId], references: [id])
+  shifts         Shift[]
+  swapRequests   ShiftSwapRequest[]
+  matchRequests  ShiftSwapRequest[]  @relation("ShiftMatchCounterpart")
+  offers         ShiftOffer[]
 
   @@unique([tenantId, userId])
   @@index([tenantId, businessUnitId])
@@ -493,34 +515,64 @@ model Shift {
   startsAt       DateTime @map("starts_at")
   endsAt         DateTime @map("ends_at")
 
-  tenant       Tenant             @relation(fields: [tenantId], references: [id])
-  businessUnit BusinessUnit       @relation(fields: [businessUnitId], references: [id])
-  employee     Employee           @relation(fields: [employeeId], references: [id])
-  swapRequests ShiftSwapRequest[]
+  tenant         Tenant             @relation(fields: [tenantId], references: [id])
+  businessUnit   BusinessUnit       @relation(fields: [businessUnitId], references: [id])
+  employee       Employee           @relation(fields: [employeeId], references: [id])
+  swapRequests   ShiftSwapRequest[]
+  proposedOn     ShiftSwapRequest[] @relation("ShiftMatchProposed")
+  offers         ShiftOffer[]
 
   @@index([tenantId, employeeId])
   @@map("shifts")
 }
 
 model ShiftSwapRequest {
-  id               String          @id @default(uuid()) @db.Uuid
-  tenantId         String          @map("tenant_id") @db.Uuid
-  sessionId        String          @unique @map("session_id") @db.Uuid
-  employeeId       String          @map("employee_id") @db.Uuid
-  shiftId          String?         @map("shift_id") @db.Uuid
-  intentText       String          @map("intent_text")
-  requestedLabel   String          @map("requested_label")
-  status           ShiftSwapStatus @default(OPEN)
-  decidedByUserId  String?         @map("decided_by_user_id") @db.Uuid
-  decidedAt        DateTime?       @map("decided_at")
-  createdAt        DateTime        @default(now()) @map("created_at")
+  id                    String           @id @default(uuid()) @db.Uuid
+  tenantId              String           @map("tenant_id") @db.Uuid
+  sessionId             String           @unique @map("session_id") @db.Uuid
+  employeeId            String           @map("employee_id") @db.Uuid
+  shiftId               String?          @map("shift_id") @db.Uuid
+  kind                  ShiftRequestKind @default(COVER)
+  intentText            String           @map("intent_text")
+  requestedLabel        String           @map("requested_label")
+  status                ShiftSwapStatus  @default(OPEN)
+  counterpartEmployeeId String?          @map("counterpart_employee_id") @db.Uuid
+  proposedShiftId       String?          @map("proposed_shift_id") @db.Uuid
+  decidedByUserId       String?          @map("decided_by_user_id") @db.Uuid
+  decidedAt             DateTime?        @map("decided_at")
+  createdAt             DateTime         @default(now()) @map("created_at")
 
-  tenant    Tenant        @relation(fields: [tenantId], references: [id])
-  session   AgentSession  @relation(fields: [sessionId], references: [id])
-  employee  Employee      @relation(fields: [employeeId], references: [id])
-  shift     Shift?        @relation(fields: [shiftId], references: [id])
-  decidedBy User?         @relation("ShiftDecisionActor", fields: [decidedByUserId], references: [id])
+  tenant      Tenant        @relation(fields: [tenantId], references: [id])
+  session     AgentSession  @relation(fields: [sessionId], references: [id])
+  employee    Employee      @relation(fields: [employeeId], references: [id])
+  shift       Shift?        @relation(fields: [shiftId], references: [id])
+  counterpart Employee?     @relation("ShiftMatchCounterpart", fields: [counterpartEmployeeId], references: [id])
+  proposedShift Shift?      @relation("ShiftMatchProposed", fields: [proposedShiftId], references: [id])
+  decidedBy   User?         @relation("ShiftDecisionActor", fields: [decidedByUserId], references: [id])
+  offers      ShiftOffer[]
 
   @@index([tenantId, status])
   @@map("shift_swap_requests")
+}
+
+model ShiftOffer {
+  id              String           @id @default(uuid()) @db.Uuid
+  tenantId        String           @map("tenant_id") @db.Uuid
+  requestId       String           @map("request_id") @db.Uuid
+  employeeId      String           @map("employee_id") @db.Uuid
+  proposedShiftId String?          @map("proposed_shift_id") @db.Uuid
+  allowCover      Boolean          @default(false) @map("allow_cover")
+  allowSwap       Boolean          @default(false) @map("allow_swap")
+  status          ShiftOfferStatus @default(PENDING)
+  respondedAt     DateTime?        @map("responded_at")
+  createdAt       DateTime         @default(now()) @map("created_at")
+
+  tenant        Tenant           @relation(fields: [tenantId], references: [id])
+  request       ShiftSwapRequest @relation(fields: [requestId], references: [id])
+  employee      Employee         @relation(fields: [employeeId], references: [id])
+  proposedShift Shift?           @relation(fields: [proposedShiftId], references: [id])
+
+  @@unique([requestId, employeeId])
+  @@index([tenantId, employeeId, status])
+  @@map("shift_offers")
 }

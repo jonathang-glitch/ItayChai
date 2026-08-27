@@ -1,6 +1,6 @@
 # Itay Chai
 
-Phases 1–3 plus a thin Phase 6 shift slice: אורי asks to change a shift, נועה sees it and decides.
+Phases 1–3 plus a Phase 6 shift agent: cover, swap, or either. Coworkers get offers; the roster updates; the owner is notified.
 
 Progress against the 10-phase MVP plan: [docs/development-progress.md](docs/development-progress.md).
 
@@ -128,7 +128,11 @@ The mobile app is an Expo placeholder in `apps/mobile`. It is not part of the ro
 Seeded users share the password `dev-password`:
 
 - `owner-a@example.com` — tenant A owner
-- `customer-a@example.com` — tenant A customer
+- `customer-a@example.com` — tenant A customer (אורי)
+- `dana-a@example.com` — tenant A customer (דנה)
+- `yossi-a@example.com` — tenant A customer (יוסי)
+- `roi-a@example.com` — tenant A customer (רועי, no upcoming shifts)
+- `shira-a@example.com` — tenant A customer (שירה, Saturday evening)
 - `owner-b@example.com` — tenant B owner
 - `stakeholder-a@example.com` — tenant A read-only
 - `ops@example.com` — operations admin (MFA required for break-glass)

@@ -62,20 +62,18 @@ async function runFlow(payload: AgentSessionRequestedPayload) {
   const existingOutbound = await prisma.message.findFirst({
     where: { sessionId: payload.sessionId, direction: 'OUTBOUND' },
   });
-  if (existingOutbound) {
-    return;
+  if (!existingOutbound) {
+    const reply = await adapter.reply();
+    await prisma.message.create({
+      data: {
+        tenantId: payload.tenantId,
+        sessionId: payload.sessionId,
+        direction: 'OUTBOUND',
+        channel: 'whatsapp',
+        body: reply.body,
+      },
+    });
   }
-
-  const reply = await adapter.reply();
-  await prisma.message.create({
-    data: {
-      tenantId: payload.tenantId,
-      sessionId: payload.sessionId,
-      direction: 'OUTBOUND',
-      channel: 'whatsapp',
-      body: reply.body,
-    },
-  });
   await prisma.auditEntry.create({
     data: {
       tenantId: payload.tenantId,

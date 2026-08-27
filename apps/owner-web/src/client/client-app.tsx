@@ -1,15 +1,31 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { logout } from './api';
 import { CustomerHome } from './customer-home';
 import { OwnerHome } from './owner-home';
 import { Shell } from './shell';
 import { SignIn } from './sign-in';
-import { clearSession, isCustomer, readSession, writeCachedShifts, writeSession } from './session';
+import { SESSION_EVENT, clearSession, isCustomer, readSession, writeCachedShifts, writeSession } from './session';
 import type { AuthSession } from './types';
 import './client.css';
 
 export function ClientApp() {
   const [session, setSession] = useState<AuthSession | null>(() => readSession());
+
+  useEffect(() => {
+    function onSession(event: Event) {
+      const next = (event as CustomEvent<AuthSession | null>).detail;
+      if (!next) {
+        return;
+      }
+      setSession((current) =>
+        current && current.userId === next.userId
+          ? { ...current, accessToken: next.accessToken, refreshToken: next.refreshToken }
+          : next,
+      );
+    }
+    window.addEventListener(SESSION_EVENT, onSession);
+    return () => window.removeEventListener(SESSION_EVENT, onSession);
+  }, []);
 
   function signedIn(next: AuthSession) {
     if (next.shifts) {

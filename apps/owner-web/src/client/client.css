@@ -148,6 +148,11 @@ input {
   margin-bottom: 0;
 }
 
+.signin-card .people {
+  max-height: 70vh;
+  overflow: auto;
+}
+
 .people button,
 .row,
 .composer,
@@ -549,6 +554,10 @@ input {
   margin: 0;
 }
 
+.bubble p {
+  white-space: pre-wrap;
+}
+
 .bubble time {
   display: block;
   margin-top: 6px;
@@ -592,7 +601,35 @@ input {
 
 .chat-body {
   flex: 1;
-  padding: 18px;
+  min-height: 220px;
+  max-height: 52vh;
+  padding: 18px 18px 28px;
+  overflow-y: auto;
+}
+
+.chat-dock {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #fff;
+  border-top: 1px solid var(--line);
+}
+
+.chat-dock button {
+  min-height: 52px;
+  border-radius: 14px;
+  font-size: 16px;
+}
+
+.chat-dock .yes {
+  background: var(--leaf);
+  color: #fff;
+}
+
+.chat-dock .no {
+  background: #f6e4d8;
+  color: #8a3d1d;
 }
 
 .hello,
@@ -727,10 +764,208 @@ input {
   color: #8a3d1d;
 }
 
-.shift-actions .cover {
-  grid-column: 1 / -1;
+.shift-actions .cover,
+.shift-actions .intent-cover {
   background: var(--ink);
   color: var(--cream);
+}
+
+.shift-actions .cover {
+  grid-column: 1 / -1;
+}
+
+.shift-actions .either {
+  grid-column: 1 / -1;
+  background: #3d4a6b;
+  color: #fffaf3;
+}
+
+.shift-actions.yes-no {
+  grid-template-columns: 1fr 1fr;
+  align-items: stretch;
+}
+
+.shift-actions.yes-no.trio {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.shift-actions.yes-no button {
+  min-height: 52px;
+  width: 100%;
+  font-size: 16px;
+}
+
+.shift-actions .yes,
+.chat-replies .yes {
+  background: var(--leaf);
+  color: #fff;
+  box-shadow: 0 8px 18px #1d3b2d22;
+}
+
+.shift-actions .no,
+.chat-replies .no {
+  background: #f6e4d8;
+  color: #8a3d1d;
+  box-shadow: inset 0 0 0 1px #e8cbb8;
+}
+
+.offer-picks {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 4px;
+}
+
+.offer-hint {
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: var(--mute);
+}
+
+.week-shifts {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.week-shifts li:first-child {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.week-shifts li + li {
+  padding: 2px 0;
+  color: #3d4a3f;
+}
+
+.offer-picks button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #b7d4bc;
+  border-radius: 12px;
+  background: #eef7f0;
+  text-align: start;
+  cursor: pointer;
+}
+
+.offer-picks button span {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.offer-picks button.relevant {
+  border-color: #8fbf96;
+  background: #e8f3ea;
+}
+
+.offer-picks button.on {
+  border-color: var(--leaf);
+  background: #d7ecdb;
+  box-shadow: inset 0 0 0 1px var(--leaf);
+}
+
+.offer-picks button b {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--leaf);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.offer-picks em {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--mute);
+  font-style: normal;
+}
+
+.shift-actions .swap,
+.chat-replies .swap {
+  background: #3d4a6b;
+  color: #fffaf3;
+  box-shadow: 0 8px 18px #3d4a6b22;
+}
+
+.chat-turn {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  list-style: none;
+}
+
+.chat-turn .bubble {
+  align-self: end;
+}
+
+.chat-replies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  list-style: none;
+}
+
+.chat-replies button {
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 14px;
+}
+
+.composer-toggle {
+  margin: 0;
+  padding: 14px 18px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: #f7f1e8;
+  color: var(--leaf);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.shift-actions.inset {
+  margin: 0 16px 12px;
+}
+
+.offer-list {
+  padding: 0 16px 8px;
+}
+
+.offer-card {
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.offer-card p {
+  margin: 0;
+}
+
+.pill.seeking,
+.pill.match_proposed {
+  background: #f3d9c8;
+  color: #8a3d1d;
+}
+
+.pill.committed {
+  background: #dceadf;
+  color: var(--leaf);
+}
+
+.pill.unfilled,
+.pill.cancelled {
+  background: #efe4d4;
+  color: #6d4b1d;
 }
 
 .shift-actions button:disabled {

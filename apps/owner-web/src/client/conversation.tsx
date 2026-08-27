@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { displayBody } from './copy';
 import { formatTime } from './format';
 import type { ChatMessage } from './types';
@@ -5,9 +6,10 @@ import type { ChatMessage } from './types';
 type Props = {
   messages: ChatMessage[];
   mine: 'INBOUND' | 'OUTBOUND';
+  children?: ReactNode;
 };
 
-export function Conversation({ messages, mine }: Props) {
+export function Conversation({ messages, mine, children }: Props) {
   return (
     <ol className="thread">
       {messages.map((message) => {
@@ -19,6 +21,7 @@ export function Conversation({ messages, mine }: Props) {
           </li>
         );
       })}
+      {children}
     </ol>
   );
 }
