@@ -114,10 +114,10 @@ CANCELLED     search closed or someone else won
 3. דנה taps **כן** first. In one write: Friday’s `employeeId` moves to דנה, other offers cancel, request → `COMMITTED`.
 
 4. Messages:  
-   - דנה: «את בשישי בבוקר.»  
-   - אורי: «דנה לוקחת את שישי בבוקר. המשמרת ירדה ממך.»  
-   - יוסי: «כבר לא צריך — נמצא מחליף.»  
-   - נועה: «דנה מחליפה את אורי בשישי בבוקר.»
+   - דנה: «המשמרת אצלך.»  
+   - אורי: «דנה מכסה… המשמרת ירדה ממך.»  
+   - יוסי: «כבר לא צריך — נמצא פתרון.»  
+   - נועה: «דנה מכסה» — the card moves to **טופלו**.
 
 5. Rosters: אורי loses Friday. דנה has Friday and still has Sunday. יוסי unchanged.
 
@@ -205,7 +205,7 @@ Request → `UNFILLED`. אורי: «לא נמצא פתרון לשישי בבוק
 
 ### Cancel
 
-אורי or נועה can stop a search. All open offers close. Anyone still waiting is told it is cancelled.
+אורי taps **בטל חיפוש**, or נועה rejects. All open offers close. Anyone still waiting is told «הבקשה בוטלה.» The owner card moves to **טופלו**.
 
 ---
 

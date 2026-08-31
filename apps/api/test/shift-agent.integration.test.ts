@@ -122,9 +122,15 @@ test('cover: first yes takes Friday and cancels the other offer', async () => {
   assert.ok(danaNote, 'cover winner should get a confirmation');
 
   const yossiAfter = await home(yossiToken);
-  assert.ok(!yossiAfter.offers.some((offer) => offer.id === yossiHome.offers[0].id));
+  const leftover = yossiAfter.offers.find((offer) => offer.id === yossiHome.offers[0].id);
+  assert.equal(leftover?.status, 'CANCELLED');
+  assert.match(leftover?.result ?? '', /כבר לא צריך/);
   const yossiOffer = await prisma.shiftOffer.findUnique({ where: { id: yossiHome.offers[0].id } });
   assert.equal(yossiOffer?.status, 'CANCELLED');
+  const yossiNote = await prisma.message.findFirst({
+    where: { session: { customerUserId: SEED_USERS.yossiA.id }, body: { contains: 'כבר לא צריך' } },
+  });
+  assert.ok(yossiNote, 'leftover coworker should be told the cover is taken');
 });
 
 test('swap: coworker yes then requester yes trades the two shifts', async () => {
@@ -179,6 +185,10 @@ test('swap: coworker yes then requester yes trades the two shifts', async () => 
     where: { session: { customerUserId: SEED_USERS.danaA.id }, body: { contains: 'אישר את ההחלפה' } },
   });
   assert.ok(danaNote, 'swap counterpart should get a confirmation');
+  const yossiAfter = await home(yossiToken);
+  const leftover = yossiAfter.offers.find((offer) => offer.requesterName === 'אורי');
+  assert.equal(leftover?.status, 'CANCELLED');
+  assert.match(leftover?.result ?? '', /כבר לא צריך/);
 });
 
 test('either: cover wins immediately and a later swap is not needed', async () => {
@@ -245,4 +255,32 @@ test('either: refused swap commits the queued cover', async () => {
   const oriShifts = await home(oriToken);
   assert.ok(!oriShifts.shifts.some((shift) => shift.id === SEED_SHIFTS[0].id));
   assert.ok(!oriShifts.shifts.some((shift) => shift.id === DANA_SEED_SHIFTS[0].id));
+});
+
+test('requester cancel closes leftover offers and tells the team', async () => {
+  const created = await start('COVER');
+  const danaHome = await home(danaToken);
+  const yossiHome = await home(yossiToken);
+
+  const cancelled = await request(app.getHttpServer())
+    .post(`/api/v1/customer/requests/${created.id}/cancel`)
+    .set(as(oriToken))
+    .send();
+  assert.equal(cancelled.status, 200, cancelled.text);
+  const row = (cancelled.body.requests as { id: string; shiftRequest: { status: string } }[]).find(
+    (item) => item.id === created.id,
+  );
+  assert.equal(row?.shiftRequest.status, 'CANCELLED');
+
+  const danaAfter = await home(danaToken);
+  const danaOffer = danaAfter.offers.find((offer) => offer.id === danaHome.offers[0].id);
+  assert.equal(danaOffer?.status, 'CANCELLED');
+  assert.match(danaOffer?.result ?? '', /בוטלה/);
+  const yossiAfter = await home(yossiToken);
+  const yossiOffer = yossiAfter.offers.find((offer) => offer.id === yossiHome.offers[0].id);
+  assert.equal(yossiOffer?.status, 'CANCELLED');
+  const requestRow = await prisma.shiftSwapRequest.findFirst({
+    where: { sessionId: created.id },
+  });
+  assert.equal(requestRow?.status, 'CANCELLED');
 });

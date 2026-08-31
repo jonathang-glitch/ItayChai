@@ -8,6 +8,7 @@ import { assertPermission } from '../auth/require-permission';
 import {
   answerMatch,
   answerOffer,
+  cancelCustomerSearch,
   createCustomerRequest,
   listCustomerHome,
   listCustomerRequests,
@@ -67,6 +68,13 @@ export class CustomerController {
   match(@Param('id') id: string, @Body() body: unknown) {
     assertPermission(PERMISSIONS.CUSTOMER_WRITE);
     return answerMatch(id, parseBody(matchSchema, body).action);
+  }
+
+  @Post(':id/cancel')
+  @HttpCode(200)
+  cancel(@Param('id') id: string) {
+    assertPermission(PERMISSIONS.CUSTOMER_WRITE);
+    return cancelCustomerSearch(id);
   }
 }
 

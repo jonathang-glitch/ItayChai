@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { confirmShiftMatch, listCustomerHome, respondToOffer, sendCustomerMessage } from './api';
+import { cancelShiftSearch, confirmShiftMatch, listCustomerHome, respondToOffer, sendCustomerMessage } from './api';
 import { Conversation } from './conversation';
 import { COPY, statusLabel, storeLabel } from './copy';
-import { flattenMessages, formatShiftWhen, isFromLastDay, isLiveRequest, shiftTitle } from './format';
+import { flattenMessages, formatShiftWhen, isFromLastDay, isLiveRequest, isOpenChat, shiftTitle } from './format';
 import { OfferCard } from './offer-card';
 import { membershipOf, readCachedShifts, readSession, writeCachedShifts } from './session';
 import type { AuthSession, IncomingOffer, RequestItem, ShiftItem, ShiftRequestKind } from './types';
@@ -41,7 +41,9 @@ const LIVE_OFFER = new Set(['SEEKING', 'MATCH_PROPOSED']);
 function liveOffers(offers: IncomingOffer[]) {
   return offers.filter(
     (offer) =>
-      Boolean(offer.result) || (offer.status === 'PENDING' && LIVE_OFFER.has(offer.requestStatus)),
+      (offer.status === 'PENDING' && LIVE_OFFER.has(offer.requestStatus)) ||
+      (offer.status === 'QUEUED' && LIVE_OFFER.has(offer.requestStatus)) ||
+      (offer.status === 'ACCEPTED' && offer.requestStatus === 'MATCH_PROPOSED'),
   );
 }
 
@@ -246,6 +248,27 @@ export function CustomerHome({ session }: Props) {
     setSwapShiftId(only?.id ?? '');
   }
 
+  async function cancelSearch(item: RequestItem) {
+    if (!membership || acting.current) {
+      return;
+    }
+    acting.current = true;
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await cancelShiftSearch(token(), membership.tenantId, item.id);
+      if (result.status < 200 || result.status >= 300) {
+        throw new Error(requestError(result.body));
+      }
+      applyHome(result.body, session.userId, setItems, setOffers, setShifts);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : COPY.down);
+    } finally {
+      acting.current = false;
+      setBusy(false);
+    }
+  }
+
   async function answerMatch(item: RequestItem, action: 'accept' | 'decline') {
     if (!membership || acting.current) {
       return;
@@ -316,12 +339,13 @@ export function CustomerHome({ session }: Props) {
 
   const visibleShifts = withoutTaken(shifts, items);
   const selected = visibleShifts.find((shift) => shift.id === shiftId);
-  const liveItems = items.filter(isLiveRequest);
+  const liveItems = items.filter(isOpenChat);
   const messages = flattenMessages(liveItems);
   const latest = liveItems[0];
   const store = storeLabel(membership?.businessUnitName);
   const pendingOffers = liveOffers(offers);
   const proposed = liveItems.find((item) => item.shiftRequest?.status === 'MATCH_PROPOSED');
+  const searching = liveItems.find((item) => LIVE_OFFER.has(item.shiftRequest?.status ?? ''));
   const inChat = messages.length > 0 || pendingOffers.length > 0;
   const showComposer = compose || !inChat;
 
@@ -404,6 +428,11 @@ export function CustomerHome({ session }: Props) {
               {COPY.refuseMatch}
             </button>
           </div>
+        ) : null}
+        {searching ? (
+          <button type="button" className="composer-toggle" disabled={busy} onClick={() => void cancelSearch(searching)}>
+            {COPY.cancelSearch}
+          </button>
         ) : null}
         {swapOffer || proposed || !ready ? null : showComposer ? (
           <div className="shift-composer">

@@ -49,6 +49,8 @@ export async function requestJson<T>(
   if (init.tenantId) {
     headers.set('x-tenant-id', init.tenantId);
   }
+  // token / tenantId are auth extras, not fetch() options
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { token: _token, tenantId: _tenant, skipRefresh, ...fetchInit } = init;
   let response: Response;
   try {
@@ -148,6 +150,14 @@ export function confirmShiftMatch(token: string, tenantId: string, sessionId: st
     token,
     tenantId,
     body: JSON.stringify({ action }),
+  });
+}
+
+export function cancelShiftSearch(token: string, tenantId: string, sessionId: string) {
+  return requestJson<CustomerHomeData>(`/api/v1/customer/requests/${sessionId}/cancel`, {
+    method: 'POST',
+    token,
+    tenantId,
   });
 }
 

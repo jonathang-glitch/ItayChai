@@ -98,11 +98,19 @@ export function isFromLastDay(value: string) {
   return date >= start;
 }
 
-const OPEN_REQUEST = new Set(['OPEN', 'SEEKING', 'MATCH_PROPOSED', 'UNFILLED', 'COMMITTED']);
+const DESK_OPEN = new Set(['OPEN', 'SEEKING', 'MATCH_PROPOSED', 'UNFILLED']);
+const LIVE_REQUEST = new Set(['OPEN', 'SEEKING', 'MATCH_PROPOSED', 'UNFILLED', 'COMMITTED', 'CANCELLED']);
 
 export function isLiveRequest(item: RequestItem) {
   if (item.shiftRequest) {
-    return OPEN_REQUEST.has(item.shiftRequest.status);
+    return LIVE_REQUEST.has(item.shiftRequest.status);
+  }
+  return item.status !== 'COMPLETED' && item.status !== 'FAILED';
+}
+
+export function isOpenChat(item: RequestItem) {
+  if (item.shiftRequest) {
+    return DESK_OPEN.has(item.shiftRequest.status);
   }
   return item.status !== 'COMPLETED' && item.status !== 'FAILED';
 }
@@ -110,7 +118,7 @@ export function isLiveRequest(item: RequestItem) {
 export function flattenMessages(items: RequestItem[]) {
   const seen = new Set<string>();
   return [...items]
-    .filter(isLiveRequest)
+    .filter((item) => item.messages.length > 0 && isOpenChat(item))
     .reverse()
     .flatMap((item) => item.messages)
     .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
@@ -129,10 +137,10 @@ export function flattenMessages(items: RequestItem[]) {
 
 export function isOpen(item: RequestItem | string) {
   if (typeof item === 'string') {
-    return OPEN_REQUEST.has(item) || (item !== 'COMPLETED' && item !== 'FAILED' && !isDoneStatus(item));
+    return DESK_OPEN.has(item) || (item !== 'COMPLETED' && item !== 'FAILED' && !isDoneStatus(item));
   }
   if (item.shiftRequest) {
-    return OPEN_REQUEST.has(item.shiftRequest.status);
+    return DESK_OPEN.has(item.shiftRequest.status);
   }
   return item.status !== 'COMPLETED' && item.status !== 'FAILED';
 }
@@ -143,7 +151,7 @@ function isDoneStatus(status: string) {
 
 export function isDone(item: RequestItem) {
   if (item.shiftRequest) {
-    return !OPEN_REQUEST.has(item.shiftRequest.status);
+    return isDoneStatus(item.shiftRequest.status);
   }
   return item.status === 'COMPLETED' || item.status === 'FAILED';
 }

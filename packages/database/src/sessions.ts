@@ -52,13 +52,15 @@ export function presentSession<
   };
 }
 
+const NOTICE_PREFIX = 'notice:';
+
 export async function findSessionsForTenant() {
   const { tenantId } = requireTenantContext();
   const rows = await prisma.agentSession.findMany({
-    where: { tenantId },
+    where: { tenantId, NOT: { externalMessageId: { startsWith: NOTICE_PREFIX } } },
     include: sessionWithMessages,
     orderBy: { createdAt: 'desc' },
-    take: 12,
+    take: 24,
   });
   return rows.map(presentSession);
 }
@@ -75,16 +77,27 @@ export async function findSessionForTenant(sessionId: string) {
 export async function findCustomerSessions(userId: string) {
   const { tenantId } = requireTenantContext();
   const prefix = customerRequestPrefix(userId);
-  const rows = await prisma.agentSession.findMany({
-    where: {
-      tenantId,
-      OR: [{ customerUserId: userId }, { externalMessageId: { startsWith: prefix } }],
-    },
-    include: sessionWithMessages,
-    orderBy: { createdAt: 'desc' },
-    take: 16,
-  });
-  return rows.map(presentSession);
+  const mine = {
+    tenantId,
+    OR: [{ customerUserId: userId }, { externalMessageId: { startsWith: prefix } }],
+  } as const;
+  const [requests, notices] = await Promise.all([
+    prisma.agentSession.findMany({
+      where: { ...mine, NOT: { externalMessageId: { startsWith: NOTICE_PREFIX } } },
+      include: sessionWithMessages,
+      orderBy: { createdAt: 'desc' },
+      take: 24,
+    }),
+    prisma.agentSession.findMany({
+      where: { tenantId, customerUserId: userId, externalMessageId: { startsWith: NOTICE_PREFIX } },
+      include: sessionWithMessages,
+      orderBy: { createdAt: 'desc' },
+      take: 24,
+    }),
+  ]);
+  return [...requests, ...notices]
+    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
+    .map(presentSession);
 }
 
 export async function acknowledgeSession(sessionId: string) {

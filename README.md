@@ -131,8 +131,8 @@ Seeded users share the password `dev-password`:
 - `customer-a@example.com` — tenant A customer (אורי)
 - `dana-a@example.com` — tenant A customer (דנה)
 - `yossi-a@example.com` — tenant A customer (יוסי)
-- `roi-a@example.com` — tenant A customer (רועי, no upcoming shifts)
-- `shira-a@example.com` — tenant A customer (שירה, Saturday evening)
+- `roi-a@example.com` — tenant A customer (רועי)
+- `shira-a@example.com` — tenant A customer (שירה)
 - `owner-b@example.com` — tenant B owner
 - `stakeholder-a@example.com` — tenant A read-only
 - `ops@example.com` — operations admin (MFA required for break-glass)
