@@ -1,6 +1,13 @@
 import { requireTenantContext } from '@itay-chai/auth';
-import { phraseShiftLabel, shiftLabelFromStart, WHATSAPP_PROVIDER } from '@itay-chai/contracts';
+import {
+  phraseShiftLabel,
+  shiftLabelFromStart,
+  WHATSAPP_PROVIDER,
+  type ShiftRequestKind,
+} from '@itay-chai/contracts';
 import { prisma } from './index.js';
+import { closeOffersForDecision } from './shift-agent.js';
+import { intentText, searchSummary, shiftTalk } from './shift-copy.js';
 
 const ACTION_TO_STATUS = {
   approve: 'APPROVED',
@@ -35,10 +42,21 @@ export function presentShiftRequest(
     | {
         id: string;
         status: string;
+        kind?: string;
         intentText: string;
         requestedLabel: string;
         shift: { id: string; label: string; startsAt: Date; endsAt: Date } | null;
         employee: { displayName: string };
+        counterpart?: { displayName: string } | null;
+        proposedShift?: { id: string; label: string; startsAt: Date; endsAt: Date } | null;
+        offers?: {
+          id: string;
+          status: string;
+          allowCover: boolean;
+          allowSwap: boolean;
+          employee: { displayName: string };
+          proposedShift: { startsAt: Date; endsAt: Date } | null;
+        }[];
       }
     | null
     | undefined,
@@ -46,15 +64,35 @@ export function presentShiftRequest(
   if (!request) {
     return null;
   }
+  const names = (request.offers ?? []).map((offer) => offer.employee.displayName);
+  const match = request.counterpart
+    ? {
+        name: request.counterpart.displayName,
+        offered: request.proposedShift
+          ? shiftTalk(request.proposedShift.startsAt)
+          : '',
+      }
+    : null;
   return {
     id: request.id,
     status: request.status,
+    kind: request.kind ?? 'COVER',
     intentText: request.intentText,
     requestedLabel: request.shift
       ? shiftLabelFromStart(request.shift.startsAt)
       : phraseShiftLabel(request.requestedLabel),
     employeeName: request.employee.displayName,
     shift: request.shift ? presentShift(request.shift) : null,
+    proposedShift: request.proposedShift ? presentShift(request.proposedShift) : null,
+    counterpartName: request.counterpart?.displayName ?? null,
+    searchSummary: searchSummary((request.kind ?? 'COVER') as ShiftRequestKind, request.status, names, match),
+    offers: (request.offers ?? []).map((offer) => ({
+      id: offer.id,
+      status: offer.status,
+      employeeName: offer.employee.displayName,
+      allowCover: offer.allowCover,
+      allowSwap: offer.allowSwap,
+    })),
   };
 }
 
@@ -83,6 +121,7 @@ export async function createShiftRequestForSession(input: {
   shiftId?: string;
   employeeId?: string;
   requestedLabel?: string;
+  kind?: ShiftRequestKind;
 }) {
   const employee = input.employeeId
     ? { id: input.employeeId }
@@ -105,14 +144,23 @@ export async function createShiftRequestForSession(input: {
     shiftId = shift.id;
     requestedLabel = shiftLabelFromStart(shift.startsAt);
   }
-
+  if (shiftId) {
+    const open = await prisma.shiftSwapRequest.findFirst({
+      where: { shiftId, status: { in: ['SEEKING', 'MATCH_PROPOSED'] } },
+    });
+    if (open) {
+      return open;
+    }
+  }
+  const kind = input.kind ?? 'COVER';
   return prisma.shiftSwapRequest.create({
     data: {
       tenantId: input.tenantId,
       sessionId: input.sessionId,
       employeeId: employee.id,
       shiftId,
-      intentText: input.text,
+      kind,
+      intentText: input.kind ? intentText(input.kind, requestedLabel) : input.text,
       requestedLabel,
       status: 'OPEN',
     },
@@ -159,6 +207,9 @@ export async function decideShiftRequest(sessionId: string, action: ShiftDecisio
       decidedAt: new Date(),
     },
   });
+  if (action !== 'approve') {
+    await closeOffersForDecision(updated.id, context.tenantId);
+  }
   const afterApprove =
     action === 'approve' && updated.shiftId
       ? prisma.shift.delete({ where: { id: updated.shiftId } }).catch(() => null)

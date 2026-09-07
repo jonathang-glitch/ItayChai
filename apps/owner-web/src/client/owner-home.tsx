@@ -37,7 +37,7 @@ export function OwnerHome({ session }: Props) {
       setLoading(false);
     }
     void refresh();
-    const timer = setInterval(() => void refresh(), 5000);
+    const timer = setInterval(() => void refresh(), 12000);
     return () => {
       cancelled = true;
       clearInterval(timer);

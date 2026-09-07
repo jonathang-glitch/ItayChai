@@ -5,9 +5,27 @@ import { presentShiftRequest } from './shifts.js';
 import { withTenantDb } from './tenant-db.js';
 
 const sessionWithMessages = {
-  messages: { orderBy: { createdAt: 'asc' as const } },
+  messages: { orderBy: { createdAt: 'desc' as const }, take: 16 },
   customer: { select: { id: true, name: true, email: true } },
-  shiftRequest: { include: { shift: true, employee: true } },
+  shiftRequest: {
+    include: {
+      shift: { select: { id: true, label: true, startsAt: true, endsAt: true } },
+      employee: { select: { displayName: true } },
+      counterpart: { select: { displayName: true } },
+      proposedShift: { select: { id: true, label: true, startsAt: true, endsAt: true } },
+      offers: {
+        select: {
+          id: true,
+          status: true,
+          allowCover: true,
+          allowSwap: true,
+          employee: { select: { displayName: true } },
+          proposedShift: { select: { startsAt: true, endsAt: true } },
+        },
+        orderBy: { createdAt: 'asc' as const },
+      },
+    },
+  },
 };
 
 export function presentSession<
@@ -29,17 +47,20 @@ export function presentSession<
     createdAt: session.createdAt,
     customerUserId: session.customerUserId ?? null,
     customerName: session.customer?.name ?? null,
-    messages: session.messages,
+    messages: [...session.messages].reverse(),
     shiftRequest: presentShiftRequest(session.shiftRequest),
   };
 }
 
+const NOTICE_PREFIX = 'notice:';
+
 export async function findSessionsForTenant() {
   const { tenantId } = requireTenantContext();
   const rows = await prisma.agentSession.findMany({
-    where: { tenantId },
+    where: { tenantId, NOT: { externalMessageId: { startsWith: NOTICE_PREFIX } } },
     include: sessionWithMessages,
     orderBy: { createdAt: 'desc' },
+    take: 24,
   });
   return rows.map(presentSession);
 }
@@ -56,15 +77,27 @@ export async function findSessionForTenant(sessionId: string) {
 export async function findCustomerSessions(userId: string) {
   const { tenantId } = requireTenantContext();
   const prefix = customerRequestPrefix(userId);
-  const rows = await prisma.agentSession.findMany({
-    where: {
-      tenantId,
-      OR: [{ customerUserId: userId }, { externalMessageId: { startsWith: prefix } }],
-    },
-    include: sessionWithMessages,
-    orderBy: { createdAt: 'desc' },
-  });
-  return rows.map(presentSession);
+  const mine = {
+    tenantId,
+    OR: [{ customerUserId: userId }, { externalMessageId: { startsWith: prefix } }],
+  };
+  const [requests, notices] = await Promise.all([
+    prisma.agentSession.findMany({
+      where: { ...mine, NOT: { externalMessageId: { startsWith: NOTICE_PREFIX } } },
+      include: sessionWithMessages,
+      orderBy: { createdAt: 'desc' },
+      take: 24,
+    }),
+    prisma.agentSession.findMany({
+      where: { tenantId, customerUserId: userId, externalMessageId: { startsWith: NOTICE_PREFIX } },
+      include: sessionWithMessages,
+      orderBy: { createdAt: 'desc' },
+      take: 24,
+    }),
+  ]);
+  return [...requests, ...notices]
+    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
+    .map(presentSession);
 }
 
 export async function acknowledgeSession(sessionId: string) {

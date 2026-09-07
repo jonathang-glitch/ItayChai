@@ -17,12 +17,23 @@ export function readSession(): AuthSession | null {
   }
 }
 
+export const SESSION_EVENT = 'itay-chai.session';
+
 export function writeSession(session: AuthSession) {
   sessionStorage.setItem(KEY, JSON.stringify(session));
 }
 
 export function clearSession() {
   sessionStorage.removeItem(KEY);
+}
+
+export function publishSession(session: AuthSession | null) {
+  if (session) {
+    writeSession(session);
+  } else {
+    clearSession();
+  }
+  window.dispatchEvent(new CustomEvent(SESSION_EVENT, { detail: session }));
 }
 
 export function membershipOf(session: AuthSession): Membership | undefined {

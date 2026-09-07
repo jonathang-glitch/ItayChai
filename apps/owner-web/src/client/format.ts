@@ -33,18 +33,42 @@ export function phraseShiftLabel(label: string) {
 
 export function phraseShiftTalk(text: string) {
   return text
-    .replace(/בבוקר\s+(\S+)/g, 'ב$1 בבוקר')
-    .replace(/בערב\s+(\S+)/g, 'ב$1 בערב')
-    .replace(/בוקר\s+(\S+)/g, '$1 בבוקר')
-    .replace(/ערב\s+(\S+)/g, '$1 בערב');
+    .replace(/בבוקר\s+(?![\d(])(\S+)/g, 'ב$1 בבוקר')
+    .replace(/בערב\s+(?![\d(])(\S+)/g, 'ב$1 בערב')
+    .replace(/בוקר\s+(?![\d(])(\S+)/g, '$1 בבוקר')
+    .replace(/ערב\s+(?![\d(])(\S+)/g, '$1 בערב');
 }
 
 export function swapRequestText(label: string) {
   return `צריך החלפה ב${phraseShiftLabel(label)}`;
 }
 
+export function shiftTalkWithDate(startsAt: Date | string) {
+  const date = typeof startsAt === 'string' ? new Date(startsAt) : startsAt;
+  const when = new Intl.DateTimeFormat('he-IL', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'Asia/Jerusalem',
+  }).format(date);
+  return `${shiftLabelFromStart(date)} (${when})`;
+}
+
+export function weekdayName(startsAt: Date | string) {
+  return new Intl.DateTimeFormat('he-IL', {
+    weekday: 'long',
+    timeZone: 'Asia/Jerusalem',
+  })
+    .format(typeof startsAt === 'string' ? new Date(startsAt) : startsAt)
+    .replace(/^יום\s+/, '');
+}
+
 export function shiftTitle(shift: { label: string; startsAt: string }) {
-  return shift.startsAt ? shiftLabelFromStart(shift.startsAt) : phraseShiftLabel(shift.label);
+  if (shift.startsAt) {
+    return weekdayName(shift.startsAt);
+  }
+  return phraseShiftLabel(shift.label)
+    .replace(/\s+בבוקר$/, '')
+    .replace(/\s+בערב$/, '');
 }
 
 const time = new Intl.DateTimeFormat('he-IL', { hour: '2-digit', minute: '2-digit' });
@@ -74,32 +98,68 @@ export function isFromLastDay(value: string) {
   return date >= start;
 }
 
-export function flattenMessages(items: RequestItem[]) {
-  return [...items]
-    .filter((item) => isFromLastDay(item.createdAt))
-    .reverse()
-    .flatMap((item) => item.messages)
-    .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
-}
+const DESK_OPEN = new Set(['OPEN', 'SEEKING', 'MATCH_PROPOSED', 'UNFILLED']);
+const LIVE_REQUEST = new Set(['OPEN', 'SEEKING', 'MATCH_PROPOSED', 'UNFILLED', 'COMMITTED', 'CANCELLED']);
 
-export function isOpen(item: RequestItem | string) {
-  if (typeof item === 'string') {
-    return item === 'OPEN' || (item !== 'COMPLETED' && item !== 'FAILED');
-  }
+export function isLiveRequest(item: RequestItem) {
   if (item.shiftRequest) {
-    return item.shiftRequest.status === 'OPEN';
+    return LIVE_REQUEST.has(item.shiftRequest.status);
   }
   return item.status !== 'COMPLETED' && item.status !== 'FAILED';
 }
 
+export function isOpenChat(item: RequestItem) {
+  if (item.shiftRequest) {
+    return DESK_OPEN.has(item.shiftRequest.status);
+  }
+  return item.status !== 'COMPLETED' && item.status !== 'FAILED';
+}
+
+export function flattenMessages(items: RequestItem[]) {
+  const seen = new Set<string>();
+  return [...items]
+    .filter((item) => item.messages.length > 0 && isOpenChat(item))
+    .reverse()
+    .flatMap((item) => item.messages)
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+    .filter((message) => {
+      const minute = message.createdAt.slice(0, 16);
+      const key = message.id || `${minute}:${message.body}`;
+      const twin = `${minute}:${message.body}`;
+      if (seen.has(key) || seen.has(twin)) {
+        return false;
+      }
+      seen.add(key);
+      seen.add(twin);
+      return true;
+    });
+}
+
+export function isOpen(item: RequestItem | string) {
+  if (typeof item === 'string') {
+    return DESK_OPEN.has(item) || (item !== 'COMPLETED' && item !== 'FAILED' && !isDoneStatus(item));
+  }
+  if (item.shiftRequest) {
+    return DESK_OPEN.has(item.shiftRequest.status);
+  }
+  return item.status !== 'COMPLETED' && item.status !== 'FAILED';
+}
+
+function isDoneStatus(status: string) {
+  return ['COMMITTED', 'CANCELLED', 'APPROVED', 'REJECTED', 'NEEDS_REPLACEMENT'].includes(status);
+}
+
 export function isDone(item: RequestItem) {
   if (item.shiftRequest) {
-    return item.shiftRequest.status !== 'OPEN';
+    return isDoneStatus(item.shiftRequest.status);
   }
   return item.status === 'COMPLETED' || item.status === 'FAILED';
 }
 
 export function onOwnerDesk(item: RequestItem) {
+  if (item.shiftRequest && isLiveRequest(item)) {
+    return true;
+  }
   if (!isFromLastDay(item.createdAt)) {
     return false;
   }
@@ -109,10 +169,20 @@ export function onOwnerDesk(item: RequestItem) {
   return item.status !== 'COMPLETED' && item.status !== 'FAILED';
 }
 
-export function formatShiftWhen(startsAt: string, endsAt: string) {
+export function formatShiftWhen(startsAt: string) {
   const start = new Date(startsAt);
-  const end = new Date(endsAt);
-  const dayName = new Intl.DateTimeFormat('he-IL', { weekday: 'long', day: 'numeric', month: 'short' }).format(start);
-  const hours = new Intl.DateTimeFormat('he-IL', { hour: '2-digit', minute: '2-digit' });
-  return `${dayName} · ${hours.format(start)}–${hours.format(end)}`;
+  const dayName = new Intl.DateTimeFormat('he-IL', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'Asia/Jerusalem',
+  }).format(start);
+  const hour = Number(
+    new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit',
+      hour12: false,
+      timeZone: 'Asia/Jerusalem',
+    }).format(start),
+  );
+  return `${dayName} · ${hour < 15 ? 'בוקר' : 'ערב'}`;
 }

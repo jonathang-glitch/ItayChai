@@ -41,6 +41,30 @@ export const SEED_USERS = {
     email: 'customer-a@example.com',
     name: 'אורי',
   },
+  danaA: {
+    id: '00000000-0000-4000-8000-000000000016',
+    authSubject: 'auth-dana-a',
+    email: 'dana-a@example.com',
+    name: 'דנה',
+  },
+  yossiA: {
+    id: '00000000-0000-4000-8000-000000000017',
+    authSubject: 'auth-yossi-a',
+    email: 'yossi-a@example.com',
+    name: 'יוסי',
+  },
+  roiA: {
+    id: '00000000-0000-4000-8000-000000000018',
+    authSubject: 'auth-roi-a',
+    email: 'roi-a@example.com',
+    name: 'רועי',
+  },
+  shiraA: {
+    id: '00000000-0000-4000-8000-000000000019',
+    authSubject: 'auth-shira-a',
+    email: 'shira-a@example.com',
+    name: 'שירה',
+  },
 };
 
 const TEL_AVIV_STORE_ID = '00000000-0000-4000-8000-000000000021';
@@ -105,35 +129,52 @@ export async function seedIdentity() {
   await upsertUser(SEED_USERS.ops, true);
   await upsertUser(SEED_USERS.stakeholderA, false);
   await upsertUser(SEED_USERS.customerA, false);
+  await upsertUser(SEED_USERS.danaA, false);
+  await upsertUser(SEED_USERS.yossiA, false);
+  await upsertUser(SEED_USERS.roiA, false);
+  await upsertUser(SEED_USERS.shiraA, false);
 
   await upsertMembership(DEV_TENANT_ID, SEED_USERS.ownerA.id, ownerRole.id, TEL_AVIV_STORE_ID);
   await upsertMembership(SECOND_TENANT_ID, SEED_USERS.ownerB.id, ownerRole.id);
   await upsertMembership(DEV_TENANT_ID, SEED_USERS.ops.id, opsRole.id);
   await upsertMembership(DEV_TENANT_ID, SEED_USERS.stakeholderA.id, stakeholderRole.id);
   await upsertMembership(DEV_TENANT_ID, SEED_USERS.customerA.id, customerRole.id, TEL_AVIV_STORE_ID);
+  await upsertMembership(DEV_TENANT_ID, SEED_USERS.danaA.id, customerRole.id, TEL_AVIV_STORE_ID);
+  await upsertMembership(DEV_TENANT_ID, SEED_USERS.yossiA.id, customerRole.id, TEL_AVIV_STORE_ID);
+  await upsertMembership(DEV_TENANT_ID, SEED_USERS.roiA.id, customerRole.id, TEL_AVIV_STORE_ID);
+  await upsertMembership(DEV_TENANT_ID, SEED_USERS.shiraA.id, customerRole.id, TEL_AVIV_STORE_ID);
 
   await seedRoster(prisma);
 
-  await prisma.stakeholderIdentity.upsert({
-    where: {
-      tenantId_channel_externalId: {
-        tenantId: DEV_TENANT_ID,
-        channel: 'web',
-        externalId: SEED_USERS.customerA.id,
+  for (const user of [
+    SEED_USERS.customerA,
+    SEED_USERS.danaA,
+    SEED_USERS.yossiA,
+    SEED_USERS.roiA,
+    SEED_USERS.shiraA,
+  ]) {
+    await prisma.stakeholderIdentity.upsert({
+      where: {
+        tenantId_channel_externalId: {
+          tenantId: DEV_TENANT_ID,
+          channel: 'web',
+          externalId: user.id,
+        },
       },
-    },
-    create: {
-      tenantId: DEV_TENANT_ID,
-      userId: SEED_USERS.customerA.id,
-      channel: 'web',
-      externalId: SEED_USERS.customerA.id,
-      verifiedAt: new Date(),
-    },
-    update: { userId: SEED_USERS.customerA.id, verifiedAt: new Date() },
-  });
+      create: {
+        tenantId: DEV_TENANT_ID,
+        userId: user.id,
+        channel: 'web',
+        externalId: user.id,
+        verifiedAt: new Date(),
+      },
+      update: { userId: user.id, verifiedAt: new Date() },
+    });
+  }
 }
 
 export async function resetClientInbox() {
+  await prisma.shiftOffer.deleteMany();
   await prisma.shiftSwapRequest.deleteMany();
   await prisma.dlqReplay.deleteMany();
   await prisma.dlqItem.deleteMany();
