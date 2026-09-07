@@ -67,6 +67,15 @@ export const SEED_USERS = {
   },
 };
 
+export const SEED_WHATSAPP = {
+  ownerA: '+972500000000',
+  customerA: '+972500000001',
+  danaA: '+972500000002',
+  yossiA: '+972500000003',
+  roiA: '+972500000004',
+  shiraA: '+972500000005',
+} as const;
+
 const TEL_AVIV_STORE_ID = '00000000-0000-4000-8000-000000000021';
 
 export async function seedIdentity() {
@@ -166,6 +175,34 @@ export async function seedIdentity() {
         userId: user.id,
         channel: 'web',
         externalId: user.id,
+        verifiedAt: new Date(),
+      },
+      update: { userId: user.id, verifiedAt: new Date() },
+    });
+  }
+
+  const phones: { user: (typeof SEED_USERS)[keyof typeof SEED_USERS]; phone: string }[] = [
+    { user: SEED_USERS.ownerA, phone: SEED_WHATSAPP.ownerA },
+    { user: SEED_USERS.customerA, phone: SEED_WHATSAPP.customerA },
+    { user: SEED_USERS.danaA, phone: SEED_WHATSAPP.danaA },
+    { user: SEED_USERS.yossiA, phone: SEED_WHATSAPP.yossiA },
+    { user: SEED_USERS.roiA, phone: SEED_WHATSAPP.roiA },
+    { user: SEED_USERS.shiraA, phone: SEED_WHATSAPP.shiraA },
+  ];
+  for (const { user, phone } of phones) {
+    await prisma.stakeholderIdentity.upsert({
+      where: {
+        tenantId_channel_externalId: {
+          tenantId: DEV_TENANT_ID,
+          channel: 'whatsapp',
+          externalId: phone,
+        },
+      },
+      create: {
+        tenantId: DEV_TENANT_ID,
+        userId: user.id,
+        channel: 'whatsapp',
+        externalId: phone,
         verifiedAt: new Date(),
       },
       update: { userId: user.id, verifiedAt: new Date() },

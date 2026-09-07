@@ -23,7 +23,14 @@ export async function applyTenantRls(tenantId: string) {
 
 export { Prisma, SessionStatus, MessageDirection } from '@prisma/client';
 export type { Tenant, AgentSession, User } from '@prisma/client';
-export { seedIdentity, resetClientInbox, SEED_USERS, SEED_PASSWORD } from './seed-data.js';
+export { seedIdentity, resetClientInbox, SEED_USERS, SEED_PASSWORD, SEED_WHATSAPP } from './seed-data.js';
+export {
+  enqueueOwnerWhatsApp,
+  enqueueWhatsAppSend,
+  enqueueWhatsAppSendNow,
+  findWhatsAppIdentity,
+} from './whatsapp-send.js';
+export { didNotUnderstand } from './shift-copy.js';
 export {
   SEED_SHIFTS,
   DANA_SEED_SHIFTS,

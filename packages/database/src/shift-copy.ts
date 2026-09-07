@@ -49,6 +49,16 @@ export function eitherAsk(requester: string, wanted: string) {
   return `${requester} ${needs} מחליף ב${wanted}. אפשר לכסות או להחליף.\nהאם אפשרי עבורך?`;
 }
 
+export function offerAsk(kind: ShiftRequestKind, requester: string, wanted: string) {
+  if (kind === 'COVER') {
+    return coverAsk(requester, wanted);
+  }
+  if (kind === 'SWAP') {
+    return swapAsk(requester, wanted);
+  }
+  return eitherAsk(requester, wanted);
+}
+
 export function coverCommitted(winner: string, wanted: string, forWinner: boolean) {
   return forWinner ? `המשמרת אצלך: ${wanted}.` : `${winner} מכסה את ${wanted}. המשמרת ירדה ממך.`;
 }
@@ -109,6 +119,10 @@ export function requesterRefused() {
 
 export function unfilled(label: string) {
   return `לא נמצא פתרון ל${label}.`;
+}
+
+export function didNotUnderstand() {
+  return 'לא הבנתי. אפשר לכתוב כן, לא, כיסוי, או החלפה.';
 }
 
 export function searchSummary(

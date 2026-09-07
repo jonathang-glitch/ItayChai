@@ -4,7 +4,7 @@ import { after, before, test } from 'node:test';
 import { NestFactory } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { DEV_TENANT_ID } from '@itay-chai/contracts';
+import { DEV_TENANT_ID, WHATSAPP_SEND_REQUESTED } from '@itay-chai/contracts';
 import {
   DANA_EMPLOYEE_ID,
   DANA_FREE_SHIFT,
@@ -16,6 +16,7 @@ import {
   SEED_PASSWORD,
   SEED_SHIFTS,
   SEED_USERS,
+  SEED_WHATSAPP,
   YOSSI_SEED_SHIFTS,
 } from '@itay-chai/database';
 import { AppModule } from '../src/app.module.js';
@@ -92,6 +93,16 @@ test('cover: first yes takes Friday and cancels the other offer', async () => {
   assert.equal(created.shiftRequest.kind, 'COVER');
   const names = created.shiftRequest.offers.map((offer) => offer.employeeName).sort();
   assert.deepEqual(names, ['דנה', 'יוסי', 'רועי', 'שירה']);
+  const queued = await prisma.domainEvent.findMany({
+    where: { eventType: WHATSAPP_SEND_REQUESTED },
+  });
+  const offerSends = queued.filter((row) => row.aggregateType === 'ShiftOffer');
+  assert.equal(offerSends.length, 4);
+  assert.deepEqual(
+    offerSends.map((row) => (row.payload as { to: string }).to).sort(),
+    [SEED_WHATSAPP.danaA, SEED_WHATSAPP.roiA, SEED_WHATSAPP.shiraA, SEED_WHATSAPP.yossiA].sort(),
+  );
+  assert.ok(offerSends.every((row) => (row.payload as { text: string }).text.includes('אורי')));
 
   const danaHome = await home(danaToken);
   const yossiHome = await home(yossiToken);

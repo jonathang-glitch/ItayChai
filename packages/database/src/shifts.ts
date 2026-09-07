@@ -8,6 +8,7 @@ import {
 import { prisma } from './index.js';
 import { closeOffersForDecision } from './shift-agent.js';
 import { intentText, searchSummary, shiftTalk } from './shift-copy.js';
+import { enqueueWhatsAppSendNow } from './whatsapp-send.js';
 
 const ACTION_TO_STATUS = {
   approve: 'APPROVED',
@@ -240,5 +241,18 @@ export async function decideShiftRequest(sessionId: string, action: ShiftDecisio
       },
     }),
   ]);
+  const session = await prisma.agentSession.findUnique({
+    where: { id: sessionId },
+    select: { customerUserId: true },
+  });
+  if (session?.customerUserId) {
+    await enqueueWhatsAppSendNow({
+      tenantId: context.tenantId,
+      userId: session.customerUserId,
+      body: DECISION_REPLY[action],
+      aggregateType: 'AgentSession',
+      aggregateId: sessionId,
+    });
+  }
   return updated;
 }

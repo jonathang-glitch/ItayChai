@@ -23,6 +23,7 @@
     "@itay-chai/auth": "workspace:*",
     "@itay-chai/config": "workspace:*",
     "@itay-chai/contracts": "workspace:*",
+    "@itay-chai/domain": "workspace:*",
     "@prisma/client": "^6.13.0",
     "dotenv": "^16.6.1"
   },

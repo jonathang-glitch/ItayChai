@@ -8,7 +8,7 @@ import {
   type AgentSessionRequestedPayload,
   type MockWhatsAppWebhook,
 } from '@itay-chai/contracts';
-import { Prisma, prisma } from '@itay-chai/database';
+import { enqueueWhatsAppSend, Prisma, prisma } from '@itay-chai/database';
 
 export type IngestResult = {
   sessionId: string;
@@ -156,6 +156,16 @@ async function createNew(
         metadata: { provider: WHATSAPP_PROVIDER, externalMessageId: input.externalMessageId },
       },
     });
+
+    if (customerUserId) {
+      await enqueueWhatsAppSend(tx, {
+        tenantId,
+        userId: customerUserId,
+        body: MOCK_WHATSAPP_REPLY,
+        aggregateType: 'AgentSession',
+        aggregateId: session.id,
+      });
+    }
 
     return { sessionId: session.id, message: MOCK_WHATSAPP_REPLY };
   }, { maxWait: 10_000, timeout: 20_000 });

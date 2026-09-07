@@ -116,6 +116,7 @@ export const MOCK_WHATSAPP_REPLY = 'Your request was received.';
 export const WHATSAPP_PROVIDER = 'whatsapp';
 export const AGENT_SESSION_QUEUE = 'agent-session';
 export const AGENT_SESSION_REQUESTED = 'AgentSessionRequested';
+export const WHATSAPP_SEND_REQUESTED = 'WhatsAppSendRequested';
 export const RELIABILITY_QUARANTINE_REQUESTED = 'ReliabilityQuarantineRequested';
 
 export const mockWhatsAppWebhookSchema = z.object({
@@ -133,3 +134,31 @@ export type AgentSessionRequestedPayload = {
   correlationId: string;
   externalMessageId: string;
 };
+
+export type WhatsAppButton = {
+  id: string;
+  title: string;
+};
+
+export type WhatsAppSendRequestedPayload = {
+  eventType: typeof WHATSAPP_SEND_REQUESTED;
+  tenantId: string;
+  eventId: string;
+  correlationId: string;
+  userId: string;
+  to: string;
+  text: string;
+  buttons?: WhatsAppButton[];
+};
+
+export function offerButtonId(offerId: string, action: ShiftOfferAction, proposedShiftId?: string) {
+  return proposedShiftId ? `offer:${offerId}:${action}:${proposedShiftId}` : `offer:${offerId}:${action}`;
+}
+
+export function matchButtonId(sessionId: string, action: ShiftMatchAction) {
+  return `match:${sessionId}:${action}`;
+}
+
+export function cancelButtonId(sessionId: string) {
+  return `search:${sessionId}:cancel`;
+}

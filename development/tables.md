@@ -23,7 +23,7 @@ Short why for each table in Docker Postgres (`127.0.0.1:54322`).
 | `invitations` | An owner can add someone to their business. |
 | `user_devices` | Which phone/app install to notify later. |
 | `break_glass_grants` | Written, time-limited emergency access — no silent back door. |
-| `stakeholder_identities` | This WhatsApp number is this person in this business (empty until real WhatsApp). |
+| `stakeholder_identities` | This WhatsApp number is this person in this business. Seeded with mock `+97250…` phones until Meta is live. |
 
 ## The WhatsApp job
 

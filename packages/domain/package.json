@@ -11,6 +11,9 @@
     "lint": "eslint src",
     "test": "tsx --test src/*.test.ts"
   },
+  "dependencies": {
+    "@itay-chai/contracts": "workspace:*"
+  },
   "devDependencies": {
     "tsx": "^4.20.4",
     "typescript": "^5.9.2"

@@ -13,6 +13,8 @@
     "@itay-chai/config": "workspace:*",
     "@itay-chai/contracts": "workspace:*",
     "@itay-chai/database": "workspace:*",
+    "@itay-chai/domain": "workspace:*",
+    "@itay-chai/integrations": "workspace:*",
     "@itay-chai/observability": "workspace:*",
     "@nestjs/common": "^11.1.6",
     "@nestjs/core": "^11.1.6",

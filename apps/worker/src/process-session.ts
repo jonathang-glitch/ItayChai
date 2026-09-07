@@ -2,12 +2,14 @@ import { runWithTenant } from '@itay-chai/auth';
 import {
   AGENT_SESSION_REQUESTED,
   RELIABILITY_QUARANTINE_REQUESTED,
+  WHATSAPP_SEND_REQUESTED,
   type AgentSessionRequestedPayload,
 } from '@itay-chai/contracts';
 import { applyTenantRls, prisma, SessionStatus } from '@itay-chai/database';
 import { assertTransition, PermanentJobError } from '@itay-chai/domain';
 import { MockWhatsAppAdapter } from '@itay-chai/integrations';
 import { runReliableJob } from './job-runtime.js';
+import { processWhatsAppSend } from './process-whatsapp-send.js';
 
 const FLOW: SessionStatus[] = [
   SessionStatus.INITIALIZING,
@@ -28,6 +30,9 @@ async function processRequestedSession(raw: unknown): Promise<void> {
   }
   if (!payload.tenantId) {
     throw new PermanentJobError('Worker job missing tenantId', 'VALIDATION');
+  }
+  if (payload.eventType === WHATSAPP_SEND_REQUESTED) {
+    return processWhatsAppSend(raw);
   }
   if (payload.eventType !== AGENT_SESSION_REQUESTED) {
     throw new PermanentJobError(`Unsupported event ${String(payload.eventType)}`);

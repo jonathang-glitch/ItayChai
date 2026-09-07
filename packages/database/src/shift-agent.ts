@@ -1,17 +1,22 @@
 import type { Prisma, ShiftOfferStatus } from '@prisma/client';
 import { requireTenantContext } from '@itay-chai/auth';
 import {
+  cancelButtonId,
   jerusalemDayKey,
   jerusalemWeekKey,
   jerusalemWeekday,
+  matchButtonId,
+  offerButtonId,
   shiftLabelFromStart,
   WHATSAPP_PROVIDER,
   type ShiftMatchAction,
   type ShiftOfferAction,
   type ShiftRequestKind,
+  type WhatsAppButton,
 } from '@itay-chai/contracts';
 import { prisma } from './index.js';
 import * as copy from './shift-copy.js';
+import { enqueueOwnerWhatsApp, enqueueWhatsAppSend } from './whatsapp-send.js';
 
 type Tx = Prisma.TransactionClient;
 
@@ -45,6 +50,19 @@ function swapChoicesFor(
     .sort((left, right) => left.startsAt.getTime() - right.startsAt.getTime());
 }
 
+function offerButtons(offerId: string, allowCover: boolean, allowSwap: boolean): WhatsAppButton[] {
+  const yes: WhatsAppButton[] = [];
+  if (allowCover && allowSwap) {
+    yes.push({ id: offerButtonId(offerId, 'cover'), title: 'כיסוי' }, { id: offerButtonId(offerId, 'swap'), title: 'החלפה' });
+  } else if (allowCover) {
+    yes.push({ id: offerButtonId(offerId, 'cover'), title: 'כן' });
+  } else if (allowSwap) {
+    yes.push({ id: offerButtonId(offerId, 'swap'), title: 'החלפה' });
+  }
+  yes.push({ id: offerButtonId(offerId, 'decline'), title: 'לא' });
+  return yes;
+}
+
 function presentShiftItem(shift: { id: string; startsAt: Date; endsAt: Date }) {
   return {
     id: shift.id,
@@ -54,7 +72,13 @@ function presentShiftItem(shift: { id: string; startsAt: Date; endsAt: Date }) {
   };
 }
 
-async function writeOutbound(tx: Tx, tenantId: string, sessionId: string, body: string) {
+async function writeOutbound(
+  tx: Tx,
+  tenantId: string,
+  sessionId: string,
+  body: string,
+  buttons?: WhatsAppButton[],
+) {
   await tx.message.create({
     data: {
       tenantId,
@@ -64,6 +88,20 @@ async function writeOutbound(tx: Tx, tenantId: string, sessionId: string, body: 
       body,
     },
   });
+  const session = await tx.agentSession.findUnique({
+    where: { id: sessionId },
+    select: { customerUserId: true },
+  });
+  if (session?.customerUserId) {
+    await enqueueWhatsAppSend(tx, {
+      tenantId,
+      userId: session.customerUserId,
+      body,
+      aggregateType: 'AgentSession',
+      aggregateId: sessionId,
+      ...(buttons ? { buttons } : {}),
+    });
+  }
 }
 
 async function writePeerNotice(
@@ -100,7 +138,7 @@ export async function startShiftSearch(requestId: string) {
     where: { id: requestId },
     include: {
       shift: { select: { id: true, businessUnitId: true, startsAt: true, endsAt: true } },
-      employee: { select: { shifts: { select: { startsAt: true } } } },
+      employee: { select: { displayName: true, shifts: { select: { startsAt: true } } } },
     },
   });
   if (!request?.shift) {
@@ -118,6 +156,7 @@ export async function startShiftSearch(requestId: string) {
     },
     select: {
       id: true,
+      userId: true,
       displayName: true,
       shifts: { select: { id: true, label: true, startsAt: true, endsAt: true } },
     },
@@ -156,10 +195,22 @@ export async function startShiftSearch(requestId: string) {
   }
 
   const label = shiftLabelFromStart(request.shift.startsAt);
+  const wanted = wantedLabel(request.shift.startsAt);
   const status = offers.length ? 'SEEKING' : 'UNFILLED';
   await prisma.$transaction(async (tx) => {
-    if (offers.length) {
-      await tx.shiftOffer.createMany({ data: offers });
+    for (const row of offers) {
+      const created = await tx.shiftOffer.create({ data: row });
+      const coworker = coworkers.find((item) => item.id === row.employeeId);
+      if (coworker?.userId) {
+        await enqueueWhatsAppSend(tx, {
+          tenantId: request.tenantId,
+          userId: coworker.userId,
+          body: copy.offerAsk(kind, request.employee.displayName, wanted),
+          aggregateType: 'ShiftOffer',
+          aggregateId: created.id,
+          buttons: offerButtons(created.id, row.allowCover, row.allowSwap),
+        });
+      }
     }
     await tx.shiftSwapRequest.update({
       where: { id: request.id },
@@ -170,9 +221,13 @@ export async function startShiftSearch(requestId: string) {
       request.tenantId,
       request.sessionId,
       offers.length ? copy.seekingMessage(kind, label) : copy.unfilled(label),
+      offers.length ? [{ id: cancelButtonId(request.sessionId), title: 'בטל' }] : undefined,
     );
     if (offers.length) {
       await writeOutbound(tx, request.tenantId, request.sessionId, copy.searchSummary(kind, 'SEEKING', names));
+      await enqueueOwnerWhatsApp(tx, request.tenantId, copy.searchSummary(kind, 'SEEKING', names), request.id);
+    } else {
+      await enqueueOwnerWhatsApp(tx, request.tenantId, copy.unfilled(label), request.id);
     }
   });
   return prisma.shiftSwapRequest.findUnique({ where: { id: request.id } });
@@ -427,6 +482,12 @@ async function commitCover(
     offer.request.sessionId,
     copy.coverCommitted(offer.employee.displayName, wanted, false),
   );
+  await enqueueOwnerWhatsApp(
+    tx,
+    offer.request.tenantId,
+    copy.coverCommitted(offer.employee.displayName, wanted, false),
+    offer.request.id,
+  );
   await writePeerNotice(
     tx,
     offer.request.tenantId,
@@ -491,6 +552,10 @@ async function proposeSwap(
       true,
       offer.request.requesterName,
     ),
+    [
+      { id: matchButtonId(offer.request.sessionId, 'accept'), title: 'מאשר החלפה' },
+      { id: matchButtonId(offer.request.sessionId, 'decline'), title: 'לא' },
+    ],
   );
   await writePeerNotice(
     tx,
@@ -532,6 +597,7 @@ export async function cancelShiftSearch(sessionId: string) {
       message: copy.requestCancelled(),
     });
     await writeOutbound(tx, tenantId, sessionId, copy.searchCancelled());
+    await enqueueOwnerWhatsApp(tx, tenantId, copy.searchCancelled(), request.id);
     return { ok: true };
   });
 }
@@ -593,6 +659,7 @@ export async function confirmMatch(sessionId: string, action: ShiftMatchAction) 
       const wanted = wantedLabel(request.shift.startsAt);
       const offered = wantedLabel(request.proposedShift.startsAt);
       await writeOutbound(tx, tenantId, sessionId, copy.swapCommitted(wanted, offered));
+      await enqueueOwnerWhatsApp(tx, tenantId, copy.swapCommitted(wanted, offered), request.id);
       await writePeerNotice(
         tx,
         tenantId,

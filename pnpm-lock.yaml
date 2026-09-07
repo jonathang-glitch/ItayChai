@@ -51,6 +51,12 @@ importers:
       '@itay-chai/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@itay-chai/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      '@itay-chai/integrations':
+        specifier: workspace:*
+        version: link:../../packages/integrations
       '@itay-chai/observability':
         specifier: workspace:*
         version: link:../../packages/observability
@@ -281,6 +287,9 @@ importers:
       '@itay-chai/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@itay-chai/domain':
+        specifier: workspace:*
+        version: link:../domain
       '@prisma/client':
         specifier: ^6.13.0
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
@@ -302,6 +311,10 @@ importers:
         version: 5.9.3
 
   packages/domain:
+    dependencies:
+      '@itay-chai/contracts':
+        specifier: workspace:*
+        version: link:../contracts
     devDependencies:
       tsx:
         specifier: ^4.20.4
