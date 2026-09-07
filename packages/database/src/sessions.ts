@@ -80,7 +80,7 @@ export async function findCustomerSessions(userId: string) {
   const mine = {
     tenantId,
     OR: [{ customerUserId: userId }, { externalMessageId: { startsWith: prefix } }],
-  } as const;
+  };
   const [requests, notices] = await Promise.all([
     prisma.agentSession.findMany({
       where: { ...mine, NOT: { externalMessageId: { startsWith: NOTICE_PREFIX } } },

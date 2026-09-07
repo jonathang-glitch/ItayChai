@@ -137,7 +137,7 @@ test('swap: coworker yes then requester yes trades the two shifts', async () => 
   const created = await start('SWAP');
   assert.equal(created.shiftRequest.status, 'SEEKING');
   const names = created.shiftRequest.offers.map((offer) => offer.employeeName).sort();
-  assert.deepEqual(names, ['דנה', 'יוסי', 'רועי']);
+  assert.deepEqual(names, ['דנה', 'יוסי', 'רועי', 'שירה']);
   const danaHome = await home(danaToken);
   assert.equal(danaHome.offers[0].allowSwap, true);
   assert.equal(danaHome.offers[0].allowCover, false);
