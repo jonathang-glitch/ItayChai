@@ -5,4 +5,4 @@ export const OWNER_A = 'owner-a@example.com';
 export const OWNER_B = 'owner-b@example.com';
 export const STAKEHOLDER = 'stakeholder-a@example.com';
 export const OPS = 'ops@example.com';
-export const EXPECTED_REPLY = 'Your request was received.';
+export const EXPECTED_REPLY = 'הבקשה נקלטה.';

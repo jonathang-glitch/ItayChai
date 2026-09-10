@@ -40,23 +40,39 @@ export function coverAsk(requester: string, wanted: string) {
   return `${requester} ${needs} מחליף ב${wanted}.\nהאם אפשרי עבורך?`;
 }
 
-export function swapAsk(requester: string, wanted: string) {
-  return `${requester} רוצה להחליף את ${wanted}.\nהאם אפשרי עבורך?`;
+export function swapAsk(requester: string, wanted: string, choices: string[] = []) {
+  if (!choices.length) {
+    return `${requester} רוצה להחליף את ${wanted}.\nהאם אפשרי עבורך?`;
+  }
+  return [`${requester} רוצה להחליף את ${wanted}.`, 'איזו משמרת להחליף?', ...choices].join('\n');
 }
 
-export function eitherAsk(requester: string, wanted: string) {
+export function eitherAsk(requester: string, wanted: string, choices: string[] = []) {
   const needs = isFeminineName(requester) ? 'צריכה' : 'צריך';
+  if (choices.length) {
+    return [`${requester} ${needs} מחליף ב${wanted}. אפשר לכסות, או להחליף.`, 'איזו משמרת להחליף?', ...choices].join('\n');
+  }
   return `${requester} ${needs} מחליף ב${wanted}. אפשר לכסות או להחליף.\nהאם אפשרי עבורך?`;
 }
 
-export function offerAsk(kind: ShiftRequestKind, requester: string, wanted: string) {
+export function offerAsk(kind: ShiftRequestKind, requester: string, wanted: string, choices: string[] = []) {
   if (kind === 'COVER') {
     return coverAsk(requester, wanted);
   }
   if (kind === 'SWAP') {
-    return swapAsk(requester, wanted);
+    return swapAsk(requester, wanted, choices);
   }
-  return eitherAsk(requester, wanted);
+  return eitherAsk(requester, wanted, choices);
+}
+
+export function whatsAppReplyHint(kind: ShiftRequestKind) {
+  if (kind === 'SWAP') {
+    return 'כתבי את המשמרת שאת רוצה לתת, או לא.';
+  }
+  if (kind === 'EITHER') {
+    return 'אפשר לכתוב כיסוי, את המשמרת שאת רוצה לתת, או לא.';
+  }
+  return 'אפשר לכתוב כן או לא.';
 }
 
 export function coverCommitted(winner: string, wanted: string, forWinner: boolean) {
@@ -105,6 +121,10 @@ export function alreadyTaken() {
   return 'כבר נתפס.';
 }
 
+export function gotIt() {
+  return 'קיבלנו.';
+}
+
 export function queuedSwap() {
   return 'קיבלנו. אם ההצעה הקודמת לא תאושר, נפנה אליך.';
 }
@@ -122,7 +142,14 @@ export function unfilled(label: string) {
 }
 
 export function didNotUnderstand() {
-  return 'לא הבנתי. אפשר לכתוב כן, לא, כיסוי, או החלפה.';
+  return 'לא הבנתי. אפשר לכתוב כן, לא, או את המשמרת שאת רוצה לתת.';
+}
+
+export function pickSwapAgain(choices: string[] = []) {
+  if (!choices.length) {
+    return 'איזו משמרת להחליף? כתבי את המשמרת, או לא.';
+  }
+  return ['איזו משמרת להחליף?', ...choices, 'כתבי את המשמרת שאת רוצה לתת, או לא.'].join('\n');
 }
 
 export function searchSummary(

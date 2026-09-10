@@ -4,6 +4,7 @@ import { runWithTenant } from '@itay-chai/auth';
 import {
   classifyWhatsAppText,
   inferRequestKind,
+  matchShiftFromText,
   parseWhatsAppButton,
 } from '@itay-chai/domain';
 import {
@@ -12,8 +13,10 @@ import {
   findWhatsAppIdentity,
   listIncomingOffers,
   listMyShifts,
+  pickSwapAgain,
   prisma,
   Prisma,
+  shiftTalkWithDate,
 } from '@itay-chai/database';
 import { createWhatsAppAdapter } from '@itay-chai/integrations';
 import { createCustomerRequest, answerMatch, answerOffer, cancelCustomerSearch } from '../../customer/customer.service';
@@ -22,7 +25,7 @@ export type InboundResult = {
   ok: true;
   duplicate?: true;
   ignored?: 'no_message' | 'unknown_sender';
-  handled?: 'offer' | 'match' | 'cancel' | 'new_request' | 'unparsed';
+  handled?: 'offer' | 'match' | 'cancel' | 'new_request' | 'unparsed' | 'need_pick';
   error?: string;
 };
 
@@ -38,6 +41,19 @@ async function recordInbound(tenantId: string, sessionId: string, body: string) 
       body,
     },
   });
+}
+
+async function recordOfferInbound(tenantId: string, shiftId: string | undefined, body: string) {
+  if (!shiftId) {
+    return;
+  }
+  const request = await prisma.shiftSwapRequest.findFirst({
+    where: { tenantId, shiftId },
+    select: { sessionId: true },
+  });
+  if (request) {
+    await recordInbound(tenantId, request.sessionId, body);
+  }
 }
 
 async function lockReceipt(tenantId: string, externalMessageId: string) {
@@ -107,28 +123,51 @@ async function routeIdentified(
     select: { sessionId: true },
   });
 
-  if (pending && (intent === 'yes' || intent === 'cover' || intent === 'swap' || intent === 'no')) {
-    const action =
-      intent === 'no' ? 'decline' : intent === 'swap' || (intent === 'yes' && !pending.allowCover) ? 'swap' : 'cover';
-    const proposed = action === 'swap' ? pending.swapChoices?.[0]?.id : undefined;
-    await answerOffer(pending.id, action, proposed);
-    if (pending.requestedShift) {
-      const request = await prisma.shiftSwapRequest.findFirst({
-        where: { tenantId: identity.tenantId, shiftId: pending.requestedShift.id },
-        select: { sessionId: true },
-      });
-      if (request) {
-        await recordInbound(identity.tenantId, request.sessionId, spoken);
-      }
-    }
-    return { ok: true, handled: 'offer' };
-  }
-
-  if (matchSession && (intent === 'accept' || (intent === 'yes' && !pending) || intent === 'decline_match' || (intent === 'no' && !pending))) {
-    const action = intent === 'decline_match' || intent === 'no' ? 'decline' : 'accept';
-    await answerMatch(matchSession.sessionId, action);
+  const namedShift = pending
+    ? matchShiftFromText(inbound.text, [...(pending.swapChoices ?? []), ...(pending.weekShifts ?? [])])
+    : undefined;
+  const agrees = intent === 'accept' || intent === 'yes';
+  const refuses = intent === 'decline_match' || intent === 'no';
+  if (matchSession && (agrees || refuses) && !namedShift) {
+    await answerMatch(matchSession.sessionId, refuses ? 'decline' : 'accept');
     await recordInbound(identity.tenantId, matchSession.sessionId, spoken);
     return { ok: true, handled: 'match' };
+  }
+  if (pending && namedShift && intent !== 'cancel') {
+    await answerOffer(pending.id, 'swap', namedShift);
+    await recordOfferInbound(identity.tenantId, pending.requestedShift?.id, spoken);
+    return { ok: true, handled: 'offer' };
+  }
+  if (pending && refuses) {
+    await answerOffer(pending.id, 'decline');
+    await recordOfferInbound(identity.tenantId, pending.requestedShift?.id, spoken);
+    return { ok: true, handled: 'offer' };
+  }
+  if (pending && (intent === 'yes' || intent === 'cover' || intent === 'swap' || intent === 'either')) {
+    const wantsCover = intent === 'cover' || (intent !== 'swap' && pending.allowCover);
+    if (wantsCover) {
+      await answerOffer(pending.id, 'cover');
+      await recordOfferInbound(identity.tenantId, pending.requestedShift?.id, spoken);
+      return { ok: true, handled: 'offer' };
+    }
+    const onlyChoice = pending.swapChoices?.length === 1 ? pending.swapChoices[0]?.id : undefined;
+    const proposed = namedShift ?? onlyChoice;
+    if (!proposed) {
+      const labels = (pending.swapChoices ?? []).map((shift) =>
+        shift.startsAt ? shiftTalkWithDate(new Date(shift.startsAt)) : shift.label,
+      );
+      await enqueueWhatsAppSendNow({
+        tenantId: identity.tenantId,
+        userId: identity.userId,
+        body: pickSwapAgain(labels),
+        aggregateType: 'WhatsAppInbound',
+        aggregateId: pending.id,
+      });
+      return { ok: true, handled: 'need_pick' };
+    }
+    await answerOffer(pending.id, 'swap', proposed);
+    await recordOfferInbound(identity.tenantId, pending.requestedShift?.id, spoken);
+    return { ok: true, handled: 'offer' };
   }
 
   if (openSearch && intent === 'cancel') {
@@ -137,16 +176,33 @@ async function routeIdentified(
     return { ok: true, handled: 'cancel' };
   }
 
-  if (intent === 'cover' || intent === 'swap' || intent === 'either' || intent === 'new') {
-    const next = (await listMyShifts(identity.userId))[0];
-    if (next) {
-      await createCustomerRequest({
-        shiftId: next.id,
-        kind: inferRequestKind(intent),
-        text: inbound.text,
+  const mine = await listMyShifts(identity.userId);
+  const namedMine = matchShiftFromText(inbound.text, mine);
+  const wantsNew = intent === 'cover' || intent === 'swap' || intent === 'either' || intent === 'new';
+  if (!namedMine && wantsNew) {
+    const upcoming = mine.filter((shift) => new Date(shift.endsAt).getTime() > Date.now());
+    const choices = (upcoming.length ? upcoming : mine).map((shift) =>
+      shift.startsAt ? shiftTalkWithDate(new Date(shift.startsAt)) : shift.label,
+    );
+    if (choices.length) {
+      await enqueueWhatsAppSendNow({
+        tenantId: identity.tenantId,
+        userId: identity.userId,
+        body: pickSwapAgain(choices),
+        aggregateType: 'WhatsAppInbound',
+        aggregateId: randomUUID(),
       });
-      return { ok: true, handled: 'new_request' };
+      return { ok: true, handled: 'need_pick' };
     }
+  }
+  const chosen = namedMine ? mine.find((shift) => shift.id === namedMine) : undefined;
+  if (chosen && (namedMine || wantsNew)) {
+    await createCustomerRequest({
+      shiftId: chosen.id,
+      kind: namedMine && intent === 'unknown' ? 'SWAP' : inferRequestKind(intent),
+      text: inbound.text,
+    });
+    return { ok: true, handled: 'new_request' };
   }
 
   await enqueueWhatsAppSendNow({

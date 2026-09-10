@@ -6,7 +6,7 @@ import {
   SECOND_TENANT_ID,
 } from '@itay-chai/contracts';
 import { prisma } from './index.js';
-import { seedRoster } from './seed-roster.js';
+import { isLiveWhatsAppRoster, seedRoster } from './seed-roster.js';
 
 export const SEED_PASSWORD = 'dev-password';
 
@@ -67,14 +67,18 @@ export const SEED_USERS = {
   },
 };
 
+function seedPhone(envName: string, fallback: string) {
+  return process.env[envName]?.trim() || fallback;
+}
+
 export const SEED_WHATSAPP = {
-  ownerA: '+972500000000',
-  customerA: '+972500000001',
-  danaA: '+972500000002',
-  yossiA: '+972500000003',
-  roiA: '+972500000004',
-  shiraA: '+972500000005',
-} as const;
+  ownerA: seedPhone('SEED_WHATSAPP_OWNER', '+972500000000'),
+  customerA: seedPhone('SEED_WHATSAPP_ORI', '+972500000001'),
+  danaA: seedPhone('SEED_WHATSAPP_DANA', '+972500000002'),
+  yossiA: seedPhone('SEED_WHATSAPP_YOSSI', '+972500000003'),
+  roiA: seedPhone('SEED_WHATSAPP_ROI', '+972500000004'),
+  shiraA: seedPhone('SEED_WHATSAPP_SHIRA', '+972500000005'),
+};
 
 const TEL_AVIV_STORE_ID = '00000000-0000-4000-8000-000000000021';
 
@@ -181,15 +185,37 @@ export async function seedIdentity() {
     });
   }
 
-  const phones: { user: (typeof SEED_USERS)[keyof typeof SEED_USERS]; phone: string }[] = [
-    { user: SEED_USERS.ownerA, phone: SEED_WHATSAPP.ownerA },
-    { user: SEED_USERS.customerA, phone: SEED_WHATSAPP.customerA },
-    { user: SEED_USERS.danaA, phone: SEED_WHATSAPP.danaA },
-    { user: SEED_USERS.yossiA, phone: SEED_WHATSAPP.yossiA },
-    { user: SEED_USERS.roiA, phone: SEED_WHATSAPP.roiA },
-    { user: SEED_USERS.shiraA, phone: SEED_WHATSAPP.shiraA },
-  ];
+  const phones: { user: (typeof SEED_USERS)[keyof typeof SEED_USERS]; phone: string }[] = isLiveWhatsAppRoster()
+    ? [
+        { user: SEED_USERS.danaA, phone: SEED_WHATSAPP.danaA },
+        { user: SEED_USERS.yossiA, phone: SEED_WHATSAPP.yossiA },
+      ]
+    : [
+        { user: SEED_USERS.ownerA, phone: SEED_WHATSAPP.ownerA },
+        { user: SEED_USERS.customerA, phone: SEED_WHATSAPP.customerA },
+        { user: SEED_USERS.danaA, phone: SEED_WHATSAPP.danaA },
+        { user: SEED_USERS.yossiA, phone: SEED_WHATSAPP.yossiA },
+        { user: SEED_USERS.roiA, phone: SEED_WHATSAPP.roiA },
+        { user: SEED_USERS.shiraA, phone: SEED_WHATSAPP.shiraA },
+      ];
+  if (isLiveWhatsAppRoster()) {
+    await prisma.stakeholderIdentity.deleteMany({
+      where: {
+        tenantId: DEV_TENANT_ID,
+        channel: 'whatsapp',
+        userId: { notIn: [SEED_USERS.danaA.id, SEED_USERS.yossiA.id] },
+      },
+    });
+  }
   for (const { user, phone } of phones) {
+    await prisma.stakeholderIdentity.deleteMany({
+      where: {
+        tenantId: DEV_TENANT_ID,
+        userId: user.id,
+        channel: 'whatsapp',
+        NOT: { externalId: phone },
+      },
+    });
     await prisma.stakeholderIdentity.upsert({
       where: {
         tenantId_channel_externalId: {

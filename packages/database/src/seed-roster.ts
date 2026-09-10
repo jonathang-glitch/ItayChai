@@ -71,6 +71,20 @@ export const SHIRA_SEED_SHIFTS = [
   slot('00000000-0000-4000-8000-000000000074', '2026-09-09T08:00:00+03:00', '2026-09-09T14:00:00+03:00'),
 ] as const;
 
+export const LIVE_DANA_SHIFTS = [
+  slot('00000000-0000-4000-8000-0000000000a1', '2026-09-09T08:00:00+03:00', '2026-09-09T14:00:00+03:00'),
+  slot('00000000-0000-4000-8000-0000000000a2', '2026-09-11T16:00:00+03:00', '2026-09-11T22:00:00+03:00'),
+  slot('00000000-0000-4000-8000-0000000000a3', '2026-09-13T08:00:00+03:00', '2026-09-13T14:00:00+03:00'),
+  slot('00000000-0000-4000-8000-0000000000a4', '2026-09-15T16:00:00+03:00', '2026-09-15T22:00:00+03:00'),
+] as const;
+
+export const LIVE_YOSSI_SHIFTS = [
+  slot('00000000-0000-4000-8000-0000000000b1', '2026-09-10T08:00:00+03:00', '2026-09-10T14:00:00+03:00'),
+  slot('00000000-0000-4000-8000-0000000000b2', '2026-09-12T16:00:00+03:00', '2026-09-12T22:00:00+03:00'),
+  slot('00000000-0000-4000-8000-0000000000b3', '2026-09-14T08:00:00+03:00', '2026-09-14T14:00:00+03:00'),
+  slot('00000000-0000-4000-8000-0000000000b4', '2026-09-16T16:00:00+03:00', '2026-09-16T22:00:00+03:00'),
+] as const;
+
 const PEOPLE = [
   { id: ORI_EMPLOYEE_ID, userId: ORI_USER_ID, displayName: 'אורי', shifts: SEED_SHIFTS },
   { id: DANA_EMPLOYEE_ID, userId: DANA_USER_ID, displayName: 'דנה', shifts: DANA_SEED_SHIFTS },
@@ -80,10 +94,37 @@ const PEOPLE = [
   { id: SHIRA_EMPLOYEE_ID, userId: SHIRA_USER_ID, displayName: 'שירה', shifts: SHIRA_SEED_SHIFTS },
 ] as const;
 
-export async function seedRoster(db: PrismaClient) {
-  const keepIds = PEOPLE.flatMap((person) => person.shifts.map((shift) => shift.id));
+const LIVE_PEOPLE = [
+  { id: DANA_EMPLOYEE_ID, userId: DANA_USER_ID, displayName: 'דנה', shifts: LIVE_DANA_SHIFTS },
+  { id: YOSSI_EMPLOYEE_ID, userId: YOSSI_USER_ID, displayName: 'יוסי', shifts: LIVE_YOSSI_SHIFTS },
+] as const;
 
-  for (const person of PEOPLE) {
+export function isLiveWhatsAppRoster() {
+  return (process.env.WHATSAPP_PROVIDER ?? 'mock') === 'twilio';
+}
+
+export async function pruneWorkersWithoutWhatsApp(db: PrismaClient) {
+  if (!isLiveWhatsAppRoster()) {
+    return;
+  }
+  const drop = [ORI_EMPLOYEE_ID, MICHAL_EMPLOYEE_ID, ROI_EMPLOYEE_ID, SHIRA_EMPLOYEE_ID];
+  await db.shift.deleteMany({ where: { tenantId: DEV_TENANT_ID, employeeId: { in: drop } } });
+  await db.employee.deleteMany({ where: { tenantId: DEV_TENANT_ID, id: { in: drop } } });
+  const keepIds = [...LIVE_DANA_SHIFTS, ...LIVE_YOSSI_SHIFTS].map((shift) => shift.id);
+  await db.shift.deleteMany({
+    where: {
+      tenantId: DEV_TENANT_ID,
+      employeeId: { in: [DANA_EMPLOYEE_ID, YOSSI_EMPLOYEE_ID] },
+      id: { notIn: keepIds },
+    },
+  });
+}
+
+export async function seedRoster(db: PrismaClient) {
+  const people = isLiveWhatsAppRoster() ? LIVE_PEOPLE : PEOPLE;
+  const keepIds = people.flatMap((person) => person.shifts.map((shift) => shift.id));
+
+  for (const person of people) {
     await db.employee.upsert({
       where: { id: person.id },
       create: {
@@ -126,7 +167,7 @@ export async function seedRoster(db: PrismaClient) {
   await db.shift.deleteMany({
     where: {
       tenantId: DEV_TENANT_ID,
-      employeeId: { in: PEOPLE.map((person) => person.id) },
+      employeeId: { in: people.map((person) => person.id) },
       id: { notIn: keepIds },
     },
   });

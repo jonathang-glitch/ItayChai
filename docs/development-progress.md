@@ -12,7 +12,7 @@ This repository is **Itay Chai**, a multi-tenant operations platform. It is not 
 | 2 Identity and tenancy | Done | Tenants, users, roles, memberships, login, RLS, two seeded tenants |
 | 3 Reliability | Done | Domain events, outbox, inbox, DLQ, audit, job attempts |
 | 4 AI Gateway / safety runtime | Not started | Status names only. No tool registry, approvals, budgets, or kill switches |
-| 5 Real WhatsApp / notifications | **Started — mock send + inbound** | Outbox sends, phone identities, inbound routing (כן / כיסוי / החלפה / מאשר). Meta Cloud API adapter not wired |
+| 5 Real WhatsApp / notifications | **Started — live Twilio demo is דנה + יוסי only** | Outbox sends, inbound routing (כן / כיסוי / החלפה / מאשר). With `WHATSAPP_PROVIDER=twilio`, seed drops Ori/Roi/Shira/Michal, gives דנה and יוסי upcoming shifts, and offer copy tells them how to reply on WhatsApp |
 | 6 Shift Agent | **Started — cover / swap / either** | Roster search, coworker offers, first-cover commit, two-sided swap, either (cover or swap). Leftover coworkers are told when a match lands or a search is cancelled. Owner still has fallback buttons. No roster vendor, no WhatsApp templates, no vacancy KPIs |
 | 7 Digital Caretaker | Not started | |
 | 8 Procurement / payments | Not started | |

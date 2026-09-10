@@ -164,6 +164,18 @@ test('swap: coworker yes then requester yes trades the two shifts', async () => 
   const waiting = danaWaiting.offers.find((offer) => offer.id === danaHome.offers[0].id);
   assert.equal(waiting?.status, 'ACCEPTED');
   assert.match(waiting?.result ?? '', /שאלנו את המבקש/);
+  const sends = await prisma.domainEvent.findMany({
+    where: { eventType: WHATSAPP_SEND_REQUESTED },
+  });
+  const askText = sends
+    .map((row) => {
+      const payload = row.payload as { text?: string };
+      return typeof payload.text === 'string' ? payload.text : '';
+    })
+    .find((text) => text.includes('מוכנה להחליף'));
+  assert.ok(askText);
+  assert.equal(askText.includes('בתמורת'), false);
+  assert.match(askText, /האם מאשר/);
 
   const oriHome = await request(app.getHttpServer()).get('/api/v1/customer/requests').set(as(oriToken));
   const row = (oriHome.body as { id: string; shiftRequest: { status: string } }[]).find((item) => item.id === created.id);

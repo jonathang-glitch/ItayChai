@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   AGENT_SESSION_QUEUE,
+  MOCK_WHATSAPP_REPLY,
   ROLE_NAMES,
   WHATSAPP_PROVIDER,
   WHATSAPP_SEND_REQUESTED,
@@ -12,6 +13,23 @@ import { prisma } from './index.js';
 import type { Prisma } from '@prisma/client';
 
 type Tx = Prisma.TransactionClient;
+
+const PLACEHOLDER_WHATSAPP = /^\+97250000000\d$/;
+
+function isLiveTwilio() {
+  return (process.env.WHATSAPP_PROVIDER ?? 'mock') === 'twilio';
+}
+
+function siteWhatsAppText(body: string) {
+  return body === 'Your request was received.' ? MOCK_WHATSAPP_REPLY : body;
+}
+
+function skipPlaceholderOnTwilio(phone: string) {
+  return (
+    (process.env.WHATSAPP_PROVIDER ?? 'mock') === 'twilio' &&
+    PLACEHOLDER_WHATSAPP.test(normalizeWhatsAppId(phone))
+  );
+}
 
 export async function findWhatsAppIdentity(from: string) {
   const normalized = normalizeWhatsAppId(from);
@@ -40,11 +58,12 @@ export async function enqueueWhatsAppSend(
       channel: WHATSAPP_PROVIDER,
     },
   });
-  if (!identity) {
+  if (!identity || skipPlaceholderOnTwilio(identity.externalId)) {
     return null;
   }
 
   const correlationId = input.correlationId ?? randomUUID();
+  const text = siteWhatsAppText(input.body);
   const event = await tx.domainEvent.create({
     data: {
       tenantId: input.tenantId,
@@ -54,7 +73,7 @@ export async function enqueueWhatsAppSend(
       aggregateVersion: 0,
       payload: {
         to: identity.externalId,
-        text: input.body,
+        text,
         userId: input.userId,
         ...(input.buttons ? { buttons: input.buttons } : {}),
       },
@@ -69,7 +88,7 @@ export async function enqueueWhatsAppSend(
     correlationId,
     userId: input.userId,
     to: identity.externalId,
-    text: input.body,
+    text,
     ...(input.buttons ? { buttons: input.buttons } : {}),
   };
 
@@ -104,6 +123,9 @@ export async function enqueueOwnerWhatsApp(
   body: string,
   aggregateId: string,
 ) {
+  if (isLiveTwilio()) {
+    return null;
+  }
   const owner = await tx.tenantMembership.findFirst({
     where: { tenantId, status: 'ACTIVE', role: { name: ROLE_NAMES.OWNER } },
     select: { userId: true },

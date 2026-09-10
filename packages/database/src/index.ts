@@ -30,7 +30,7 @@ export {
   enqueueWhatsAppSendNow,
   findWhatsAppIdentity,
 } from './whatsapp-send.js';
-export { didNotUnderstand } from './shift-copy.js';
+export { didNotUnderstand, pickSwapAgain, shiftTalkWithDate } from './shift-copy.js';
 export {
   SEED_SHIFTS,
   DANA_SEED_SHIFTS,
@@ -44,6 +44,8 @@ export {
   MICHAL_EMPLOYEE_ID,
   ROI_EMPLOYEE_ID,
   SHIRA_EMPLOYEE_ID,
+  LIVE_DANA_SHIFTS,
+  LIVE_YOSSI_SHIFTS,
 } from './seed-roster.js';
 export { appPrisma, withTenantDb } from './tenant-db.js';
 export {
@@ -67,6 +69,8 @@ export {
   confirmMatch,
   cancelShiftSearch,
   closeOffersForDecision,
+  replaceOpenSearches,
+  remindOpenSwap,
 } from './shift-agent.js';
 export {
   claimIdempotency,

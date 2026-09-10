@@ -99,7 +99,7 @@ curl -sS -X POST http://localhost:3000/api/v1/webhooks/whatsapp/mock \
   -d '{"externalMessageId":"msg-1","text":"need a shift swap"}'
 ```
 
-Expected: `{"sessionId":"...","message":"Your request was received."}`
+Expected: `{"sessionId":"...","message":"הבקשה נקלטה."}`
 
 The worker then moves the session `DRAFT → INITIALIZING → PLANNING → COMPLETED`. A second POST with the same `externalMessageId` does not create another session.
 

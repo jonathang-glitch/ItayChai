@@ -1,12 +1,12 @@
 import type { Prisma, ShiftOfferStatus } from '@prisma/client';
-import { requireTenantContext } from '@itay-chai/auth';
+import { requireTenantContext, runWithTenant } from '@itay-chai/auth';
 import {
   cancelButtonId,
   jerusalemDayKey,
   jerusalemWeekKey,
-  jerusalemWeekday,
   matchButtonId,
   offerButtonId,
+  PERMISSIONS,
   shiftLabelFromStart,
   WHATSAPP_PROVIDER,
   type ShiftMatchAction,
@@ -23,16 +23,19 @@ type Tx = Prisma.TransactionClient;
 const OPEN_OFFER = ['PENDING', 'QUEUED', 'ACCEPTED'] as const;
 const ACTIVE_SEARCH = ['SEEKING', 'MATCH_PROPOSED'] as const;
 
+function isLiveTwilio() {
+  return (process.env.WHATSAPP_PROVIDER ?? 'mock') === 'twilio';
+}
+
 function wantedLabel(startsAt: Date) {
   return copy.shiftTalkWithDate(startsAt);
 }
 
 function weeksAround(startsAt: Date) {
-  const weeks = new Set([jerusalemWeekKey(startsAt)]);
-  if (jerusalemWeekday(startsAt) >= 5) {
-    weeks.add(jerusalemWeekKey(new Date(startsAt.getTime() + 7 * 86_400_000)));
-  }
-  return weeks;
+  return new Set([
+    jerusalemWeekKey(startsAt),
+    jerusalemWeekKey(new Date(startsAt.getTime() + 7 * 86_400_000)),
+  ]);
 }
 
 function inRequestedWeeks(shiftAt: Date, wantedAt: Date) {
@@ -47,6 +50,7 @@ function swapChoicesFor(
   return coworkerShifts
     .filter((shift) => !requesterDays.has(jerusalemDayKey(shift.startsAt)))
     .filter((shift) => !wantedAt || inRequestedWeeks(shift.startsAt, wantedAt))
+    .filter((shift) => !wantedAt || shift.endsAt.getTime() > wantedAt.getTime())
     .sort((left, right) => left.startsAt.getTime() - right.startsAt.getTime());
 }
 
@@ -115,7 +119,7 @@ async function writePeerNotice(
     where: { id: employeeId },
     select: { userId: true, businessUnitId: true },
   });
-  if (!employee?.userId) {
+  if (!employee?.userId || isLiveTwilio()) {
     return;
   }
   const externalMessageId = `notice:${employee.userId}:${requestId}`;
@@ -201,11 +205,15 @@ export async function startShiftSearch(requestId: string) {
     for (const row of offers) {
       const created = await tx.shiftOffer.create({ data: row });
       const coworker = coworkers.find((item) => item.id === row.employeeId);
-      if (coworker?.userId) {
+      if (coworker?.userId && !isLiveTwilio()) {
+        const choiceLabels = swapChoicesFor(coworker.shifts, requesterDays, request.shift.startsAt).map((shift) =>
+          wantedLabel(shift.startsAt),
+        );
+        const ask = copy.offerAsk(kind, request.employee.displayName, wanted, choiceLabels);
         await enqueueWhatsAppSend(tx, {
           tenantId: request.tenantId,
           userId: coworker.userId,
-          body: copy.offerAsk(kind, request.employee.displayName, wanted),
+          body: `${ask}\n${copy.whatsAppReplyHint(kind)}`,
           aggregateType: 'ShiftOffer',
           aggregateId: created.id,
           buttons: offerButtons(created.id, row.allowCover, row.allowSwap),
@@ -230,7 +238,115 @@ export async function startShiftSearch(requestId: string) {
       await enqueueOwnerWhatsApp(tx, request.tenantId, copy.unfilled(label), request.id);
     }
   });
+  if (isLiveTwilio() && status === 'SEEKING') {
+    await acceptLiveCoworkerOffers(request.id);
+  }
   return prisma.shiftSwapRequest.findUnique({ where: { id: request.id } });
+}
+
+async function acceptLiveCoworkerOffers(requestId: string) {
+  const pending = await prisma.shiftOffer.findMany({
+    where: { requestId, status: 'PENDING', allowSwap: true },
+    include: {
+      employee: {
+        select: { userId: true, shifts: { select: { id: true, label: true, startsAt: true, endsAt: true } } },
+      },
+      request: {
+        select: {
+          tenantId: true,
+          shift: { select: { startsAt: true } },
+          employee: { select: { shifts: { select: { startsAt: true } } } },
+        },
+      },
+    },
+  });
+  for (const offer of pending) {
+    if (!offer.employee.userId || !offer.request.shift) {
+      continue;
+    }
+    const requesterDays = new Set(offer.request.employee.shifts.map((shift) => jerusalemDayKey(shift.startsAt)));
+    const choices = swapChoicesFor(offer.employee.shifts, requesterDays, offer.request.shift.startsAt);
+    const pick = choices[Math.floor(Math.random() * choices.length)];
+    if (!pick) {
+      continue;
+    }
+    await runWithTenant(
+      {
+        tenantId: offer.request.tenantId,
+        userId: offer.employee.userId,
+        actorType: 'user',
+        permissions: [PERMISSIONS.CUSTOMER_WRITE],
+        mfaSatisfied: false,
+      },
+      () => respondToOffer(offer.id, 'swap', pick.id),
+    );
+  }
+}
+
+export async function replaceOpenSearches(employeeId: string, keepShiftId?: string) {
+  const open = await prisma.shiftSwapRequest.findMany({
+    where: {
+      employeeId,
+      status: { in: [...ACTIVE_SEARCH] },
+      ...(keepShiftId ? { NOT: { shiftId: keepShiftId } } : {}),
+    },
+    select: { id: true },
+  });
+  if (!open.length) {
+    return;
+  }
+  const ids = open.map((row) => row.id);
+  await prisma.$transaction(async (tx) => {
+    await tx.shiftOffer.updateMany({
+      where: { requestId: { in: ids }, status: { in: [...OPEN_OFFER] } },
+      data: { status: 'CANCELLED', respondedAt: new Date() },
+    });
+    await tx.shiftSwapRequest.updateMany({
+      where: { id: { in: ids } },
+      data: { status: 'CANCELLED', decidedAt: new Date() },
+    });
+  });
+}
+
+export async function remindOpenSwap(requestId: string) {
+  const request = await prisma.shiftSwapRequest.findUnique({
+    where: { id: requestId },
+    include: {
+      shift: { select: { startsAt: true } },
+      proposedShift: { select: { startsAt: true } },
+      counterpart: { select: { displayName: true } },
+      employee: { select: { displayName: true } },
+    },
+  });
+  if (!request?.shift) {
+    return;
+  }
+  const kind = request.kind as ShiftRequestKind;
+  const label = shiftLabelFromStart(request.shift.startsAt);
+  await prisma.$transaction(async (tx) => {
+    if (request.status === 'MATCH_PROPOSED' && request.counterpart && request.proposedShift) {
+      await writeOutbound(
+        tx,
+        request.tenantId,
+        request.sessionId,
+        copy.swapProposed(
+          request.counterpart.displayName,
+          request.shift.startsAt,
+          request.proposedShift.startsAt,
+          true,
+          request.employee.displayName,
+        ),
+        [
+          { id: matchButtonId(request.sessionId, 'accept'), title: 'מאשר החלפה' },
+          { id: matchButtonId(request.sessionId, 'decline'), title: 'לא' },
+        ],
+      );
+      return;
+    }
+    if (request.status === 'SEEKING') {
+      await writeOutbound(tx, request.tenantId, request.sessionId, copy.seekingMessage(kind, label));
+    }
+  });
 }
 
 export async function listIncomingOffers(userId: string) {
@@ -524,6 +640,13 @@ async function proposeSwap(
     },
   });
   if (moved.count !== 1) {
+    const current = await tx.shiftSwapRequest.findUnique({
+      where: { id: offer.request.id },
+      select: { counterpartEmployeeId: true },
+    });
+    if (current?.counterpartEmployeeId === offer.employeeId) {
+      return { ok: true };
+    }
     await tx.shiftOffer.update({
       where: { id: offer.id },
       data: {

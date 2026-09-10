@@ -19,6 +19,8 @@ import {
   listIncomingOffers,
   listMyShifts,
   prisma,
+  remindOpenSwap,
+  replaceOpenSearches,
   respondToOffer,
   startShiftSearch,
 } from '@itay-chai/database';
@@ -124,11 +126,15 @@ export async function createCustomerRequest(input: {
     if (input.shiftId && (!shift || (employee && shift.employeeId !== employee.id))) {
       throw new BadRequestException('Shift is not on this employee roster');
     }
+    if (employee) {
+      await replaceOpenSearches(employee.id, input.shiftId);
+    }
     if (input.shiftId) {
       const open = await prisma.shiftSwapRequest.findFirst({
         where: { shiftId: input.shiftId, status: { in: ['SEEKING', 'MATCH_PROPOSED'] } },
       });
       if (open) {
+        await remindOpenSwap(open.id);
         return (await findSessionForTenant(open.sessionId)) ?? (await findCustomerSessions(userId))[0];
       }
     }

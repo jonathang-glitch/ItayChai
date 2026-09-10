@@ -11,9 +11,13 @@ const envSchema = z.object({
   WHATSAPP_PROVIDER: z.enum(['mock', 'twilio']).default('mock'),
   WHATSAPP_VERIFY_TOKEN: z.string().min(1).default('dev-verify-token'),
   TWILIO_ACCOUNT_SID: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
   TWILIO_API_KEY_SID: z.string().optional(),
   TWILIO_API_KEY_SECRET: z.string().optional(),
   TWILIO_WHATSAPP_FROM: z.string().optional(),
+  TWILIO_WHATSAPP_CONTENT_SID: z.string().optional(),
+  TWILIO_WHATSAPP_ROUTE_1: z.string().optional(),
+  TWILIO_WHATSAPP_ROUTE_2: z.string().optional(),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

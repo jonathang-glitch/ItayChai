@@ -14,7 +14,7 @@
     "seed": "tsx --env-file-if-exists=../../.env src/seed.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "tsx --env-file=../../.env.test --test src/*.test.ts"
+    "test": "dotenv -e ../../.env.test -o -- tsx --test src/*.test.ts"
   },
   "prisma": {
     "seed": "tsx src/seed.ts"

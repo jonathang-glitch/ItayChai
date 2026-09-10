@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { MOCK_WHATSAPP_REPLY } from '@itay-chai/contracts';
 import type { WhatsAppButton } from '@itay-chai/contracts';
+import { parseTwilioInbound, TwilioWhatsAppAdapter } from './whatsapp-twilio.js';
 
 export type WhatsAppSendInput = {
   to: string;
@@ -108,7 +109,7 @@ export class MockWhatsAppAdapter implements WhatsAppAdapter {
   }
 
   parseInbound(payload: unknown): WhatsAppInbound | null {
-    return parseMockInbound(payload) ?? parseMetaInbound(payload);
+    return parseMockInbound(payload) ?? parseMetaInbound(payload) ?? parseTwilioInbound(payload);
   }
 }
 
@@ -126,6 +127,9 @@ export function createWhatsAppAdapter(): WhatsAppAdapter {
   const provider = process.env.WHATSAPP_PROVIDER ?? 'mock';
   if (provider === 'mock') {
     return mockWhatsAppAdapter;
+  }
+  if (provider === 'twilio') {
+    return new TwilioWhatsAppAdapter();
   }
   throw new Error(`WhatsApp provider ${provider} is not wired yet`);
 }

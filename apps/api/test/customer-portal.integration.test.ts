@@ -72,7 +72,7 @@ test('customer can send a request the owner sees and cannot list all sessions', 
   );
   assert.ok(
     (created.body.messages as { direction: string; body: string }[]).some(
-      (message) => message.direction === 'OUTBOUND' && message.body === 'Your request was received.',
+      (message) => message.direction === 'OUTBOUND' && message.body === 'הבקשה נקלטה.',
     ),
   );
 

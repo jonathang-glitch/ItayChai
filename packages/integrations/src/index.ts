@@ -8,3 +8,4 @@ export {
   mockWhatsAppAdapter,
   recordedWhatsAppSends,
 } from './whatsapp.js';
+export { parseTwilioInbound, TwilioWhatsAppAdapter } from './whatsapp-twilio.js';

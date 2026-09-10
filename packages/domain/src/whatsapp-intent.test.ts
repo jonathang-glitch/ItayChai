@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import {
   classifyWhatsAppText,
   inferRequestKind,
+  matchShiftFromText,
   normalizeWhatsAppId,
   parseWhatsAppButton,
 } from './whatsapp-intent.js';
@@ -16,9 +17,32 @@ test('normalizes Israeli numbers to E.164', () => {
 test('classifies Hebrew offer and match replies', () => {
   assert.equal(classifyWhatsAppText('כן'), 'yes');
   assert.equal(classifyWhatsAppText('לא'), 'no');
+  assert.equal(classifyWhatsAppText('לא רוצה'), 'no');
+  assert.equal(classifyWhatsAppText('אין לי'), 'no');
+  assert.equal(classifyWhatsAppText('לא יכולה'), 'no');
+  assert.equal(classifyWhatsAppText('לא רוצה להחליף'), 'no');
+  assert.equal(classifyWhatsAppText('לא מעוניינת'), 'no');
+  assert.equal(classifyWhatsAppText('עסוקה'), 'no');
   assert.equal(classifyWhatsAppText('כיסוי'), 'cover');
   assert.equal(classifyWhatsAppText('החלפה'), 'swap');
+  assert.equal(classifyWhatsAppText('אני רוצה להחליף'), 'swap');
+  assert.equal(classifyWhatsAppText('בטח'), 'yes');
+  assert.equal(classifyWhatsAppText('אשמח'), 'yes');
+  assert.equal(classifyWhatsAppText('סבבה'), 'yes');
+  assert.equal(classifyWhatsAppText('יאללה'), 'yes');
+  assert.equal(classifyWhatsAppText('לא אכפת לי'), 'either');
+  assert.equal(classifyWhatsAppText('לא בטוחה'), 'unknown');
   assert.equal(classifyWhatsAppText('מאשר החלפה'), 'accept');
+  assert.equal(classifyWhatsAppText('מאשרת'), 'accept');
+  assert.equal(classifyWhatsAppText('כן מאשרת'), 'accept');
+  assert.equal(classifyWhatsAppText('אני מאשרת'), 'accept');
+  assert.equal(classifyWhatsAppText('בסדר מאשרת'), 'accept');
+  assert.equal(classifyWhatsAppText('לא מאשרת'), 'decline_match');
+  assert.equal(classifyWhatsAppText('מסרבת'), 'decline_match');
+  assert.equal(classifyWhatsAppText('עדיף שלא'), 'no');
+  assert.equal(classifyWhatsAppText('לא כרגע'), 'no');
+  assert.equal(classifyWhatsAppText('מוותרת'), 'no');
+  assert.equal(classifyWhatsAppText('תודה לא'), 'no');
   assert.equal(classifyWhatsAppText('בטל'), 'cancel');
   assert.equal(classifyWhatsAppText('צריך מחליף בשישי'), 'new');
   assert.equal(inferRequestKind('new'), 'COVER');
@@ -46,4 +70,33 @@ test('parses offer and match button ids', () => {
     action: 'accept',
   });
   assert.equal(parseWhatsAppButton('garbage'), null);
+});
+
+test('matches a named shift from free text', () => {
+  const friday = {
+    id: '00000000-0000-4000-8000-0000000000a2',
+    label: 'שישי בערב',
+    startsAt: new Date('2026-09-11T16:00:00+03:00'),
+  };
+  const sunday = {
+    id: '00000000-0000-4000-8000-0000000000a3',
+    label: 'ראשון בבוקר',
+    startsAt: new Date('2026-09-13T08:00:00+03:00'),
+  };
+  assert.equal(matchShiftFromText('שישי בערב', [friday, sunday]), friday.id);
+  assert.equal(matchShiftFromText('אפשר ראשון', [friday, sunday]), sunday.id);
+  assert.equal(matchShiftFromText('רק שישי', [friday, sunday]), friday.id);
+  assert.equal(matchShiftFromText('לא שישי, ראשון', [friday, sunday]), sunday.id);
+  assert.equal(matchShiftFromText('לא רוצה', [friday, sunday]), undefined);
+  const tuesday = {
+    id: '00000000-0000-4000-8000-0000000000a4',
+    label: 'שלישי בערב',
+    startsAt: new Date('2026-09-15T16:00:00+03:00'),
+  };
+  assert.equal(matchShiftFromText('אני רוצה להחליף ביום שישי', [friday, sunday, tuesday]), friday.id);
+  assert.equal(matchShiftFromText('אני רוצה להחליף ביום שלישי', [friday, sunday, tuesday]), tuesday.id);
+  assert.equal(matchShiftFromText('שישי', [friday, tuesday]), friday.id);
+  assert.equal(matchShiftFromText('שלישי', [friday, tuesday]), tuesday.id);
+  assert.equal(matchShiftFromText('צריך מחליף בשישי', [friday, tuesday]), friday.id);
+  assert.equal(matchShiftFromText('צריך מחליף בשלישי', [friday, tuesday]), tuesday.id);
 });
