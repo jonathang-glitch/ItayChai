@@ -45,6 +45,8 @@ test('classifies Hebrew offer and match replies', () => {
   assert.equal(classifyWhatsAppText('תודה לא'), 'no');
   assert.equal(classifyWhatsAppText('בטל'), 'cancel');
   assert.equal(classifyWhatsAppText('צריך מחליף בשישי'), 'new');
+  assert.equal(classifyWhatsAppText('מה המשמרות שלי השבוע'), 'roster');
+  assert.equal(classifyWhatsAppText('איזה משמרות יש לי'), 'roster');
   assert.equal(inferRequestKind('new'), 'COVER');
   assert.equal(inferRequestKind('swap'), 'SWAP');
 });

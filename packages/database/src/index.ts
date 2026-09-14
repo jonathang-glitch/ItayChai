@@ -30,7 +30,7 @@ export {
   enqueueWhatsAppSendNow,
   findWhatsAppIdentity,
 } from './whatsapp-send.js';
-export { didNotUnderstand, pickSwapAgain, shiftTalkWithDate } from './shift-copy.js';
+export { didNotUnderstand, myShifts, pickSwapAgain, shiftTalkWithDate } from './shift-copy.js';
 export {
   SEED_SHIFTS,
   DANA_SEED_SHIFTS,

@@ -13,6 +13,7 @@ import {
   findWhatsAppIdentity,
   listIncomingOffers,
   listMyShifts,
+  myShifts,
   pickSwapAgain,
   prisma,
   Prisma,
@@ -25,7 +26,7 @@ export type InboundResult = {
   ok: true;
   duplicate?: true;
   ignored?: 'no_message' | 'unknown_sender';
-  handled?: 'offer' | 'match' | 'cancel' | 'new_request' | 'unparsed' | 'need_pick';
+  handled?: 'offer' | 'match' | 'cancel' | 'new_request' | 'unparsed' | 'need_pick' | 'roster';
   error?: string;
 };
 
@@ -177,6 +178,20 @@ async function routeIdentified(
   }
 
   const mine = await listMyShifts(identity.userId);
+  if (intent === 'roster') {
+    const upcoming = mine.filter((shift) => new Date(shift.endsAt).getTime() > Date.now());
+    const labels = (upcoming.length ? upcoming : mine).map((shift) =>
+      shift.startsAt ? shiftTalkWithDate(new Date(shift.startsAt)) : shift.label,
+    );
+    await enqueueWhatsAppSendNow({
+      tenantId: identity.tenantId,
+      userId: identity.userId,
+      body: myShifts(labels),
+      aggregateType: 'WhatsAppInbound',
+      aggregateId: randomUUID(),
+    });
+    return { ok: true, handled: 'roster' };
+  }
   const namedMine = matchShiftFromText(inbound.text, mine);
   const wantsNew = intent === 'cover' || intent === 'swap' || intent === 'either' || intent === 'new';
   if (!namedMine && wantsNew) {

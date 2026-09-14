@@ -145,6 +145,13 @@ export function didNotUnderstand() {
   return 'לא הבנתי. אפשר לכתוב כן, לא, או את המשמרת שאת רוצה לתת.';
 }
 
+export function myShifts(labels: string[] = []) {
+  if (!labels.length) {
+    return 'אין לך משמרות קרובות.';
+  }
+  return ['המשמרות שלך:', ...labels].join('\n');
+}
+
 export function pickSwapAgain(choices: string[] = []) {
   if (!choices.length) {
     return 'איזו משמרת להחליף? כתבי את המשמרת, או לא.';

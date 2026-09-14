@@ -17,6 +17,7 @@ export type WhatsAppTextIntent =
   | 'decline_match'
   | 'cancel'
   | 'new'
+  | 'roster'
   | 'unknown';
 
 export type WhatsAppButtonIntent =
@@ -116,6 +117,9 @@ export function classifyWhatsAppText(raw?: string): WhatsAppTextIntent {
   }
   if (/צריך מחליף|רוצה מחליף|צריכה מחליף/.test(folded)) {
     return 'new';
+  }
+  if (/(משמרות|המשמרות|מה יש לי|איזה משמרות)/u.test(folded)) {
+    return 'roster';
   }
   return 'unknown';
 }
