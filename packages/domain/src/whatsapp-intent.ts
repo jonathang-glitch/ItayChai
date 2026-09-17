@@ -18,6 +18,8 @@ export type WhatsAppTextIntent =
   | 'cancel'
   | 'new'
   | 'roster'
+  | 'hello'
+  | 'help'
   | 'unknown';
 
 export type WhatsAppButtonIntent =
@@ -56,7 +58,9 @@ function fold(raw?: string) {
     .replace(/[.!?־,;:]+$/gu, '')
     .replace(/[׳']/g, '')
     .replace(/\s+/g, ' ')
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/להחליך|לחליך|להחלף/gu, 'להחליף')
+    .replace(/חליך/gu, 'חליף');
 }
 
 function escapeRegExp(value: string) {
@@ -78,7 +82,7 @@ export function classifyWhatsAppText(raw?: string): WhatsAppTextIntent {
   if (/(לא אכפת|כיסוי\s*\/\s*החלפה|כיסוי או החלפה|either)/u.test(folded)) {
     return 'either';
   }
-  if (/(לא מאשרת?|לא מאשרים|דוחה את ההחלפה|דוחה|מסרבת?|מסרב)/u.test(folded)) {
+  if (/(לא מאשרת?|לא מאשרים|דוחה את ההחלפה|דוחה|מסרבת?|מסרב|פחות מתאים)/u.test(folded)) {
     return 'decline_match';
   }
   if (/(מאשרת?(\s+את)?(\s+ההחלפה)?|(^|\s)accept(\s|$))/u.test(folded)) {
@@ -90,9 +94,12 @@ export function classifyWhatsAppText(raw?: string): WhatsAppTextIntent {
   if (/(לא בטוח|לא בטוחה|לא יודע|לא יודעת|לא ברור)/u.test(folded)) {
     return 'unknown';
   }
+  if (/(לא יכולה? להגיע|לא אוכל להגיע|לא אגיע|לא מגיע למשמרת)/u.test(folded)) {
+    return 'new';
+  }
   if (
     (/^(לא|no)(?:\s|$)/u.test(folded) ||
-      /(לא רוצה|לא תודה|תודה לא|אין לי|לא יכולה|לא יכול|לא מעוניינ|לא מתאים|לא מעניין|לא הפעם|לא כרגע|לא אפשרי|אי אפשר|אין אפשרות|אין סיכוי|עדיף שלא|נראה לי שלא|קשה לי|עסוקה|עסוק|מוותרת?|חוזרת בי|סליחה|nope|cannot|can'?t|(^|\s)no(\s|$))/u.test(
+      /(לא רוצה|לא תודה|תודה לא|אין לי|לא יכולה|לא יכול|לא מעוניינ|לא מתאים|לא מעניין|לא הפעם|לא כרגע|לא אפשרי|אי אפשר|אין אפשרות|אין סיכוי|עדיף שלא|נראה לי שלא|קשה לי|עסוקה|עסוק|מוותרת?|חוזרת בי|סליחה|לא ממש|לא נוח|nope|cannot|can'?t|(^|\s)no(\s|$))/u.test(
         folded,
       )) &&
     !/מאשר/.test(folded)
@@ -120,6 +127,76 @@ export function classifyWhatsAppText(raw?: string): WhatsAppTextIntent {
   }
   if (/(משמרות|המשמרות|מה יש לי|איזה משמרות)/u.test(folded)) {
     return 'roster';
+  }
+  if (/(משהו אחר|מה עוד|מה אפשר|איך אפשר|אפשרויות|מה אפשר לעשות)/u.test(folded)) {
+    return 'help';
+  }
+  if (
+    /^(שלום|שלומות|היי|הי|אהלן|בוקר טוב|ערב טוב|מה נשמע|נשמע מה|מה קורה|מה המצב|היו|hi|hello|hey)(?:\s|$)/u.test(
+      folded,
+    )
+  ) {
+    return 'hello';
+  }
+  return 'unknown';
+}
+
+export function isSandboxJoin(raw?: string) {
+  return /^(join|stop)\b/iu.test(fold(raw));
+}
+
+export function isShortReply(raw?: string) {
+  const folded = fold(raw);
+  return folded.length > 0 && folded.length <= 24 && folded.split(/\s+/).length <= 3;
+}
+
+export function shouldClassifyWithGemini(raw?: string, intent = classifyWhatsAppText(raw)) {
+  if (isSandboxJoin(raw)) {
+    return false;
+  }
+  if (intent === 'hello' || intent === 'roster' || intent === 'cancel' || intent === 'accept') {
+    return false;
+  }
+  if (
+    isShortReply(raw) &&
+    (intent === 'yes' ||
+      intent === 'no' ||
+      intent === 'decline_match' ||
+      intent === 'cover' ||
+      intent === 'swap' ||
+      intent === 'either' ||
+      intent === 'help')
+  ) {
+    return false;
+  }
+  return true;
+}
+
+export function classifyMatchReply(raw?: string): 'accept' | 'decline' | 'unknown' {
+  const folded = fold(raw);
+  if (!folded) {
+    return 'unknown';
+  }
+  const wantsOther = /(מישהו אחר|משהו אחר|לא יוסי|בלי יוסי|מישהו שהוא לא)/u.test(folded);
+  const likesPeer = /(יוסי.{0,16}טוב|טוב.{0,16}יוסי|רק יוסי|יוסי בסדר|יוסי הוא)/u.test(folded);
+  if (likesPeer && /לא רוצה.{0,24}(משהו|מישהו) אחר/u.test(folded)) {
+    return 'accept';
+  }
+  if (likesPeer && !wantsOther) {
+    return 'accept';
+  }
+  if (wantsOther && !likesPeer) {
+    return 'decline';
+  }
+  const intent = classifyWhatsAppText(raw);
+  if (intent === 'accept' || intent === 'yes') {
+    return 'accept';
+  }
+  if (intent === 'decline_match') {
+    return 'decline';
+  }
+  if (intent === 'no' && isShortReply(raw)) {
+    return 'decline';
   }
   return 'unknown';
 }

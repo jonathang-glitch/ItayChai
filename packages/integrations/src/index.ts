@@ -9,3 +9,10 @@ export {
   recordedWhatsAppSends,
 } from './whatsapp.js';
 export { parseTwilioInbound, TwilioWhatsAppAdapter } from './whatsapp-twilio.js';
+export {
+  classifyShiftTextWithGemini,
+  geminiShiftConfigured,
+  parseGeminiShiftDecision,
+  type GeminiShiftContext,
+  type GeminiShiftDecision,
+} from './gemini-shift-intent.js';

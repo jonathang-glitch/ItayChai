@@ -141,8 +141,16 @@ export function unfilled(label: string) {
   return `לא נמצא פתרון ל${label}.`;
 }
 
+export function howToStart() {
+  return 'היי. אפשר לכתוב משמרות, החלפה, כיסוי, או צריך החלפה בחמישי בערב.';
+}
+
+export function whatElse() {
+  return 'אפשר לנסות כיסוי במקום החלפה, או לבקש משמרת אחרת. כתבי כיסוי, החלפה, או משמרות.';
+}
+
 export function didNotUnderstand() {
-  return 'לא הבנתי. אפשר לכתוב כן, לא, או את המשמרת שאת רוצה לתת.';
+  return 'לא הבנתי. אפשר לכתוב משמרות, החלפה, כיסוי, כן, לא, או את שם המשמרת.';
 }
 
 export function myShifts(labels: string[] = []) {

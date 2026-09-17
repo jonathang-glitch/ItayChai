@@ -2,14 +2,19 @@ import { randomUUID } from 'node:crypto';
 import { PERMISSIONS, WHATSAPP_PROVIDER } from '@itay-chai/contracts';
 import { runWithTenant } from '@itay-chai/auth';
 import {
+  classifyMatchReply,
   classifyWhatsAppText,
   inferRequestKind,
+  isSandboxJoin,
   matchShiftFromText,
   parseWhatsAppButton,
+  shouldClassifyWithGemini,
 } from '@itay-chai/domain';
 import {
   didNotUnderstand,
   enqueueWhatsAppSendNow,
+  howToStart,
+  whatElse,
   findWhatsAppIdentity,
   listIncomingOffers,
   listMyShifts,
@@ -21,6 +26,7 @@ import {
 } from '@itay-chai/database';
 import { createWhatsAppAdapter } from '@itay-chai/integrations';
 import { createCustomerRequest, answerMatch, answerOffer, cancelCustomerSearch } from '../../customer/customer.service';
+import { applyGeminiIntent } from './apply-gemini';
 
 export type InboundResult = {
   ok: true;
@@ -104,7 +110,21 @@ async function routeIdentified(
     return { ok: true, handled: 'cancel' };
   }
 
+  if (isSandboxJoin(inbound.text)) {
+    return { ok: true, handled: 'unparsed' };
+  }
+
   const intent = classifyWhatsAppText(inbound.text);
+  if (intent === 'hello') {
+    await enqueueWhatsAppSendNow({
+      tenantId: identity.tenantId,
+      userId: identity.userId,
+      body: howToStart(),
+      aggregateType: 'WhatsAppInbound',
+      aggregateId: randomUUID(),
+    });
+    return { ok: true, handled: 'unparsed' };
+  }
   const offers = (await listIncomingOffers(identity.userId)).filter((row) => row.status === 'PENDING');
   const pending = offers.length === 1 ? offers[0] : undefined;
   const matchSession = await prisma.shiftSwapRequest.findFirst({
@@ -127,19 +147,51 @@ async function routeIdentified(
   const namedShift = pending
     ? matchShiftFromText(inbound.text, [...(pending.swapChoices ?? []), ...(pending.weekShifts ?? [])])
     : undefined;
-  const agrees = intent === 'accept' || intent === 'yes';
-  const refuses = intent === 'decline_match' || intent === 'no';
+  const matchReply = matchSession ? classifyMatchReply(inbound.text) : 'unknown';
+  const agrees = matchReply === 'accept' || intent === 'accept';
+  const refuses = matchReply === 'decline' || intent === 'decline_match';
   if (matchSession && (agrees || refuses) && !namedShift) {
-    await answerMatch(matchSession.sessionId, refuses ? 'decline' : 'accept');
+    await answerMatch(matchSession.sessionId, refuses && matchReply !== 'accept' ? 'decline' : 'accept');
     await recordInbound(identity.tenantId, matchSession.sessionId, spoken);
+    if (matchReply === 'decline' || intent === 'help') {
+      await enqueueWhatsAppSendNow({
+        tenantId: identity.tenantId,
+        userId: identity.userId,
+        body: whatElse(),
+        aggregateType: 'WhatsAppInbound',
+        aggregateId: matchSession.sessionId,
+      });
+    }
     return { ok: true, handled: 'match' };
+  }
+
+  const tryGemini = async () => {
+    if (!shouldClassifyWithGemini(inbound.text, intent)) {
+      return null;
+    }
+    return applyGeminiIntent({
+      tenantId: identity.tenantId,
+      userId: identity.userId,
+      text: spoken,
+      pending,
+      matchSessionId: matchSession?.sessionId,
+      openSearchId: openSearch?.sessionId,
+    });
+  };
+  try {
+    const gemini = await tryGemini();
+    if (gemini) {
+      return gemini;
+    }
+  } catch (error) {
+    console.warn('gemini_route_failed', error instanceof Error ? error.message : 'error');
   }
   if (pending && namedShift && intent !== 'cancel') {
     await answerOffer(pending.id, 'swap', namedShift);
     await recordOfferInbound(identity.tenantId, pending.requestedShift?.id, spoken);
     return { ok: true, handled: 'offer' };
   }
-  if (pending && refuses) {
+  if (pending && (intent === 'no' || intent === 'decline_match' || matchReply === 'decline')) {
     await answerOffer(pending.id, 'decline');
     await recordOfferInbound(identity.tenantId, pending.requestedShift?.id, spoken);
     return { ok: true, handled: 'offer' };
@@ -171,6 +223,17 @@ async function routeIdentified(
     return { ok: true, handled: 'offer' };
   }
 
+  if (intent === 'help') {
+    await enqueueWhatsAppSendNow({
+      tenantId: identity.tenantId,
+      userId: identity.userId,
+      body: whatElse(),
+      aggregateType: 'WhatsAppInbound',
+      aggregateId: randomUUID(),
+    });
+    return { ok: true, handled: 'unparsed' };
+  }
+
   if (openSearch && intent === 'cancel') {
     await cancelCustomerSearch(openSearch.sessionId);
     await recordInbound(identity.tenantId, openSearch.sessionId, spoken);
@@ -192,8 +255,11 @@ async function routeIdentified(
     });
     return { ok: true, handled: 'roster' };
   }
-  const namedMine = matchShiftFromText(inbound.text, mine);
   const wantsNew = intent === 'cover' || intent === 'swap' || intent === 'either' || intent === 'new';
+  const upcomingMine = mine.filter((shift) => new Date(shift.endsAt).getTime() > Date.now());
+  const namedMine =
+    matchShiftFromText(inbound.text, mine) ??
+    (wantsNew && upcomingMine.length === 1 ? upcomingMine[0]?.id : undefined);
   if (!namedMine && wantsNew) {
     const upcoming = mine.filter((shift) => new Date(shift.endsAt).getTime() > Date.now());
     const choices = (upcoming.length ? upcoming : mine).map((shift) =>
@@ -220,10 +286,26 @@ async function routeIdentified(
     return { ok: true, handled: 'new_request' };
   }
 
+  try {
+    const gemini = await applyGeminiIntent({
+      tenantId: identity.tenantId,
+      userId: identity.userId,
+      text: spoken,
+      pending,
+      matchSessionId: matchSession?.sessionId,
+      openSearchId: openSearch?.sessionId,
+    });
+    if (gemini) {
+      return gemini;
+    }
+  } catch (error) {
+    console.warn('gemini_route_failed', error instanceof Error ? error.message : 'error');
+  }
+
   await enqueueWhatsAppSendNow({
     tenantId: identity.tenantId,
     userId: identity.userId,
-    body: didNotUnderstand(),
+    body: howToStart(),
     aggregateType: 'WhatsAppInbound',
     aggregateId: randomUUID(),
   });

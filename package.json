@@ -18,7 +18,7 @@
     "db:migrate:test": "pnpm --filter @itay-chai/database migrate:test",
     "db:seed": "pnpm --filter @itay-chai/database seed",
     "db:setup": "pnpm db:generate && pnpm db:migrate && pnpm db:seed",
-    "test": "pnpm --filter @itay-chai/domain test && pnpm --filter @itay-chai/auth test && pnpm --filter @itay-chai/database test && pnpm --filter @itay-chai/api test",
+    "test": "pnpm --filter @itay-chai/domain test && pnpm --filter @itay-chai/integrations test && pnpm --filter @itay-chai/auth test && pnpm --filter @itay-chai/database test && pnpm --filter @itay-chai/api test",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
     "format": "prettier --write ."

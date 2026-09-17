@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
+  classifyMatchReply,
   classifyWhatsAppText,
   inferRequestKind,
+  isSandboxJoin,
   matchShiftFromText,
   normalizeWhatsAppId,
   parseWhatsAppButton,
+  shouldClassifyWithGemini,
 } from './whatsapp-intent.js';
 
 test('normalizes Israeli numbers to E.164', () => {
@@ -44,7 +47,23 @@ test('classifies Hebrew offer and match replies', () => {
   assert.equal(classifyWhatsAppText('מוותרת'), 'no');
   assert.equal(classifyWhatsAppText('תודה לא'), 'no');
   assert.equal(classifyWhatsAppText('בטל'), 'cancel');
+  assert.equal(classifyWhatsAppText('שלום'), 'hello');
+  assert.equal(classifyWhatsAppText('מה נשמע'), 'hello');
+  assert.equal(classifyWhatsAppText('נשמע מה'), 'hello');
+  assert.equal(classifyWhatsAppText('האם אני יכול להחליך עם יוסי?'), 'swap');
+  assert.equal(classifyWhatsAppText('אני רוצה לחליך את המשמרת שיש לי ביום חמישי'), 'swap');
+  assert.equal(classifyWhatsAppText('פחות מתאים'), 'decline_match');
+  assert.equal(classifyWhatsAppText('אין משהו אחר שאפשר לעשות?'), 'help');
+  assert.equal(classifyMatchReply('אני לא רוצה להחליף עם משהו אחר יוסי הוא טוב'), 'accept');
+  assert.equal(classifyMatchReply('אני רוצה להחליף עם מישהו אחר שהוא לא יוסי'), 'decline');
+  assert.equal(classifyMatchReply('מאשר'), 'accept');
+  assert.equal(classifyMatchReply('לא'), 'decline');
+  assert.equal(classifyMatchReply('לא בא לי סבבה?'), 'unknown');
+  assert.equal(isSandboxJoin('join solar-well'), true);
+  assert.equal(shouldClassifyWithGemini('אני לא מרגישה טוב נראלי אני לא אוכל להגיע למשמרת'), true);
+  assert.equal(shouldClassifyWithGemini('מאשר'), false);
   assert.equal(classifyWhatsAppText('צריך מחליף בשישי'), 'new');
+  assert.equal(classifyWhatsAppText('אני מרגיש טוב נראה לי לא יכול להגיע למשמרת'), 'new');
   assert.equal(classifyWhatsAppText('מה המשמרות שלי השבוע'), 'roster');
   assert.equal(classifyWhatsAppText('איזה משמרות יש לי'), 'roster');
   assert.equal(inferRequestKind('new'), 'COVER');

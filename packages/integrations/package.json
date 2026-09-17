@@ -8,7 +8,8 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "test": "tsx --test src/*.test.ts"
   },
   "dependencies": {
     "@itay-chai/contracts": "workspace:*",
@@ -16,6 +17,7 @@
     "ioredis": "^5.7.0"
   },
   "devDependencies": {
+    "tsx": "^4.20.4",
     "typescript": "^5.9.2"
   }
 }

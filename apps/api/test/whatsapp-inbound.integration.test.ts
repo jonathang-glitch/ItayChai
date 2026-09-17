@@ -244,3 +244,41 @@ test('Meta-shaped inbound and a new request from Ori both work', async () => {
   assert.equal(meta.status, 200, meta.text);
   assert.equal(meta.body.handled, 'offer');
 });
+
+test('cannot-arrive Hebrew starts a cover on the named shift', async () => {
+  await seedIdentity();
+  await resetClientInbox();
+  const started = await inbound(
+    SEED_WHATSAPP.customerA,
+    'אני לא מרגישה טוב נראלי אני לא אוכל להגיע למשמרת בשישי',
+  );
+  assert.equal(started.status, 200, started.text);
+  assert.equal(started.body.handled, 'new_request');
+  const seeking = await prisma.shiftSwapRequest.findFirst({
+    where: { employee: { userId: SEED_USERS.customerA.id }, status: 'SEEKING' },
+  });
+  assert.equal(seeking?.shiftId, SEED_SHIFTS[0].id);
+  assert.equal(seeking?.kind, 'COVER');
+});
+
+test('sandbox join is ignored and leftover confirm is not a new no', async () => {
+  await seedIdentity();
+  await resetClientInbox();
+  const first = await request(app.getHttpServer())
+    .post('/api/v1/customer/requests')
+    .set({ Authorization: `Bearer ${oriToken}`, 'x-tenant-id': DEV_TENANT_ID })
+    .send({ shiftId: SEED_SHIFTS[0].id, kind: 'SWAP' });
+  assert.equal(first.status, 201, first.text);
+  const danaOffer = await inbound(SEED_WHATSAPP.danaA, 'החלפה');
+  assert.equal(danaOffer.body.handled, 'offer', danaOffer.text);
+  const join = await inbound(SEED_WHATSAPP.customerA, 'join solar-well');
+  assert.equal(join.body.handled, 'unparsed');
+  const soft = await inbound(SEED_WHATSAPP.customerA, 'לא בא לי סבבה?');
+  assert.notEqual(soft.body.handled, 'match');
+  const proposed = await prisma.shiftSwapRequest.findFirst({
+    where: { employee: { userId: SEED_USERS.customerA.id }, status: 'MATCH_PROPOSED' },
+  });
+  assert.ok(proposed);
+  const next = await inbound(SEED_WHATSAPP.customerA, 'אני לא אוכל להגיע למשמרת בשישי');
+  assert.equal(next.body.handled, 'new_request', next.text);
+});

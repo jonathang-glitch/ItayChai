@@ -18,6 +18,8 @@ const envSchema = z.object({
   TWILIO_WHATSAPP_CONTENT_SID: z.string().optional(),
   TWILIO_WHATSAPP_ROUTE_1: z.string().optional(),
   TWILIO_WHATSAPP_ROUTE_2: z.string().optional(),
+  GEMINI_API_KEY: z.string().optional(),
+  GEMINI_MODEL: z.string().optional(),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
