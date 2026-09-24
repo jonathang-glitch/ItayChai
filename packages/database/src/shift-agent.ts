@@ -3,7 +3,6 @@ import { requireTenantContext, runWithTenant } from '@itay-chai/auth';
 import {
   cancelButtonId,
   jerusalemDayKey,
-  jerusalemWeekKey,
   matchButtonId,
   offerButtonId,
   PERMISSIONS,
@@ -14,6 +13,7 @@ import {
   type ShiftRequestKind,
   type WhatsAppButton,
 } from '@itay-chai/contracts';
+import { requestFlags, swapChoicesFor, type DeskAsk } from '@itay-chai/domain';
 import { prisma } from './index.js';
 import * as copy from './shift-copy.js';
 import { enqueueOwnerWhatsApp, enqueueWhatsAppSend } from './whatsapp-send.js';
@@ -29,29 +29,6 @@ function isLiveTwilio() {
 
 function wantedLabel(startsAt: Date) {
   return copy.shiftTalkWithDate(startsAt);
-}
-
-function weeksAround(startsAt: Date) {
-  return new Set([
-    jerusalemWeekKey(startsAt),
-    jerusalemWeekKey(new Date(startsAt.getTime() + 7 * 86_400_000)),
-  ]);
-}
-
-function inRequestedWeeks(shiftAt: Date, wantedAt: Date) {
-  return weeksAround(wantedAt).has(jerusalemWeekKey(shiftAt));
-}
-
-function swapChoicesFor(
-  coworkerShifts: { id: string; startsAt: Date; endsAt: Date; label: string }[],
-  requesterDays: Set<string>,
-  wantedAt?: Date,
-) {
-  return coworkerShifts
-    .filter((shift) => !requesterDays.has(jerusalemDayKey(shift.startsAt)))
-    .filter((shift) => !wantedAt || inRequestedWeeks(shift.startsAt, wantedAt))
-    .filter((shift) => !wantedAt || shift.endsAt.getTime() > wantedAt.getTime())
-    .sort((left, right) => left.startsAt.getTime() - right.startsAt.getTime());
 }
 
 function offerButtons(offerId: string, allowCover: boolean, allowSwap: boolean): WhatsAppButton[] {
@@ -82,6 +59,7 @@ async function writeOutbound(
   sessionId: string,
   body: string,
   buttons?: WhatsAppButton[],
+  deskAsk: DeskAsk = 'none',
 ) {
   await tx.message.create({
     data: {
@@ -104,6 +82,7 @@ async function writeOutbound(
       aggregateType: 'AgentSession',
       aggregateId: sessionId,
       ...(buttons ? { buttons } : {}),
+      deskAsk,
     });
   }
 }
@@ -176,15 +155,19 @@ export async function startShiftSearch(requestId: string) {
     allowSwap: boolean;
   }[] = [];
   const names: string[] = [];
+  const blocked: string[] = [];
   for (const coworker of coworkers) {
     const busy = coworker.shifts.some((shift) => jerusalemDayKey(shift.startsAt) === day);
     if (busy) {
+      blocked.push(`${coworker.displayName} כבר עובד באותו יום`);
       continue;
     }
     const choices = swapChoicesFor(coworker.shifts, requesterDays, request.shift.startsAt);
-    const allowCover = kind === 'COVER' || kind === 'EITHER';
-    const allowSwap = (kind === 'SWAP' || kind === 'EITHER') && choices.length > 0;
+    const flags = requestFlags(kind);
+    const allowCover = flags.allowCover;
+    const allowSwap = flags.allowSwap && choices.length > 0;
     if (!allowCover && !allowSwap) {
+      blocked.push(`${coworker.displayName} פנוי ביום הזה, בלי משמרת שאפשר להחליף אליה`);
       continue;
     }
     names.push(coworker.displayName);
@@ -228,7 +211,7 @@ export async function startShiftSearch(requestId: string) {
       tx,
       request.tenantId,
       request.sessionId,
-      offers.length ? copy.seekingMessage(kind, label) : copy.unfilled(label),
+      offers.length ? copy.seekingMessage(kind, label) : copy.unfilled(label, blocked.join('. ') || 'אין עובד אחר'),
       offers.length ? [{ id: cancelButtonId(request.sessionId), title: 'בטל' }] : undefined,
     );
     if (offers.length) {
@@ -246,7 +229,7 @@ export async function startShiftSearch(requestId: string) {
 
 async function acceptLiveCoworkerOffers(requestId: string) {
   const pending = await prisma.shiftOffer.findMany({
-    where: { requestId, status: 'PENDING', allowSwap: true },
+    where: { requestId, status: 'PENDING', OR: [{ allowSwap: true }, { allowCover: true }] },
     include: {
       employee: {
         select: { userId: true, shifts: { select: { id: true, label: true, startsAt: true, endsAt: true } } },
@@ -266,8 +249,9 @@ async function acceptLiveCoworkerOffers(requestId: string) {
     }
     const requesterDays = new Set(offer.request.employee.shifts.map((shift) => jerusalemDayKey(shift.startsAt)));
     const choices = swapChoicesFor(offer.employee.shifts, requesterDays, offer.request.shift.startsAt);
-    const pick = choices[Math.floor(Math.random() * choices.length)];
-    if (!pick) {
+    const pick = offer.allowSwap ? choices[Math.floor(Math.random() * choices.length)] : undefined;
+    const coverOnly = offer.allowCover && !offer.allowSwap;
+    if (!pick && !coverOnly) {
       continue;
     }
     await runWithTenant(
@@ -278,7 +262,7 @@ async function acceptLiveCoworkerOffers(requestId: string) {
         permissions: [PERMISSIONS.CUSTOMER_WRITE],
         mfaSatisfied: false,
       },
-      () => respondToOffer(offer.id, 'swap', pick.id),
+      () => (coverOnly ? respondToOffer(offer.id, 'cover') : respondToOffer(offer.id, 'swap', pick?.id)),
     );
   }
 }
@@ -340,6 +324,7 @@ export async function remindOpenSwap(requestId: string) {
           { id: matchButtonId(request.sessionId, 'accept'), title: 'מאשר החלפה' },
           { id: matchButtonId(request.sessionId, 'decline'), title: 'לא' },
         ],
+        'confirm_swap',
       );
       return;
     }
@@ -679,6 +664,7 @@ async function proposeSwap(
       { id: matchButtonId(offer.request.sessionId, 'accept'), title: 'מאשר החלפה' },
       { id: matchButtonId(offer.request.sessionId, 'decline'), title: 'לא' },
     ],
+    'confirm_swap',
   );
   await writePeerNotice(
     tx,

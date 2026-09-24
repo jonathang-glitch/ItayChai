@@ -77,7 +77,7 @@ export function presentShiftRequest(
   return {
     id: request.id,
     status: request.status,
-    kind: request.kind ?? 'COVER',
+    kind: request.kind ?? 'EITHER',
     intentText: request.intentText,
     requestedLabel: request.shift
       ? shiftLabelFromStart(request.shift.startsAt)
@@ -86,7 +86,7 @@ export function presentShiftRequest(
     shift: request.shift ? presentShift(request.shift) : null,
     proposedShift: request.proposedShift ? presentShift(request.proposedShift) : null,
     counterpartName: request.counterpart?.displayName ?? null,
-    searchSummary: searchSummary((request.kind ?? 'COVER') as ShiftRequestKind, request.status, names, match),
+    searchSummary: searchSummary((request.kind ?? 'EITHER') as ShiftRequestKind, request.status, names, match),
     offers: (request.offers ?? []).map((offer) => ({
       id: offer.id,
       status: offer.status,
@@ -153,7 +153,7 @@ export async function createShiftRequestForSession(input: {
       return open;
     }
   }
-  const kind = input.kind ?? 'COVER';
+  const kind = input.kind ?? 'EITHER';
   return prisma.shiftSwapRequest.create({
     data: {
       tenantId: input.tenantId,

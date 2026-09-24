@@ -491,6 +491,7 @@ model Employee {
   userId         String?  @map("user_id") @db.Uuid
   displayName    String   @map("display_name")
   roleLabel      String   @map("role_label")
+  deskAsk        String?  @map("desk_ask")
   createdAt      DateTime @default(now()) @map("created_at")
 
   tenant         Tenant              @relation(fields: [tenantId], references: [id])
@@ -532,7 +533,7 @@ model ShiftSwapRequest {
   sessionId             String           @unique @map("session_id") @db.Uuid
   employeeId            String           @map("employee_id") @db.Uuid
   shiftId               String?          @map("shift_id") @db.Uuid
-  kind                  ShiftRequestKind @default(COVER)
+  kind                  ShiftRequestKind @default(EITHER)
   intentText            String           @map("intent_text")
   requestedLabel        String           @map("requested_label")
   status                ShiftSwapStatus  @default(OPEN)

@@ -7,9 +7,15 @@ export {
   classifyWhatsAppText,
   inferRequestKind,
   isSandboxJoin,
+  requestedArrangement,
   matchShiftFromText,
   normalizeWhatsAppId,
   parseWhatsAppButton,
   shouldClassifyWithGemini,
 } from './whatsapp-intent.js';
 export type { ShiftChoice, WhatsAppButtonIntent, WhatsAppTextIntent } from './whatsapp-intent.js';
+export { fitCoworker, requesterDaySet, swapChoicesFor } from './shift-fit.js';
+export { deskAskFromLastBot, resolveDeskAction } from './desk-policy.js';
+export type { DeskAsk } from './desk-policy.js';
+export { requestFlags } from './request-kind.js';
+export type { RequestKind } from './request-kind.js';

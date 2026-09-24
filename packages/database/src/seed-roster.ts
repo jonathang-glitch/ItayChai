@@ -1,5 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
-import { DEV_TENANT_ID, shiftLabelFromStart } from '@itay-chai/contracts';
+import { DEV_TENANT_ID, jerusalemDayKey, shiftLabelFromStart } from '@itay-chai/contracts';
 
 const ORI_USER_ID = '00000000-0000-4000-8000-000000000015';
 const DANA_USER_ID = '00000000-0000-4000-8000-000000000016';
@@ -72,13 +72,13 @@ export const SHIRA_SEED_SHIFTS = [
 ] as const;
 
 export const LIVE_DANA_SHIFTS = [
-  slot('00000000-0000-4000-8000-0000000000a1', '2026-09-16T08:00:00+03:00', '2026-09-16T14:00:00+03:00'),
-  slot('00000000-0000-4000-8000-0000000000a2', '2026-09-17T16:00:00+03:00', '2026-09-17T22:00:00+03:00'),
+  slot('00000000-0000-4000-8000-0000000000a1', '2026-09-24T16:00:00+03:00', '2026-09-24T22:00:00+03:00'),
+  slot('00000000-0000-4000-8000-0000000000a2', '2026-09-27T16:00:00+03:00', '2026-09-27T22:00:00+03:00'),
 ] as const;
 
 export const LIVE_YOSSI_SHIFTS = [
-  slot('00000000-0000-4000-8000-0000000000b1', '2026-09-18T08:00:00+03:00', '2026-09-18T14:00:00+03:00'),
-  slot('00000000-0000-4000-8000-0000000000b2', '2026-09-19T16:00:00+03:00', '2026-09-19T22:00:00+03:00'),
+  slot('00000000-0000-4000-8000-0000000000b1', '2026-09-25T08:00:00+03:00', '2026-09-25T14:00:00+03:00'),
+  slot('00000000-0000-4000-8000-0000000000b2', '2026-09-26T16:00:00+03:00', '2026-09-26T22:00:00+03:00'),
 ] as const;
 
 const PEOPLE = [
@@ -116,8 +116,20 @@ export async function pruneWorkersWithoutWhatsApp(db: PrismaClient) {
   });
 }
 
+function assertOneShiftPerDay(
+  people: readonly { displayName: string; shifts: readonly { startsAt: Date }[] }[],
+) {
+  for (const person of people) {
+    const days = person.shifts.map((shift) => jerusalemDayKey(shift.startsAt));
+    if (new Set(days).size !== days.length) {
+      throw new Error(`${person.displayName} has two shifts on the same day`);
+    }
+  }
+}
+
 export async function seedRoster(db: PrismaClient) {
   const people = isLiveWhatsAppRoster() ? LIVE_PEOPLE : PEOPLE;
+  assertOneShiftPerDay(people);
   const keepIds = people.flatMap((person) => person.shifts.map((shift) => shift.id));
 
   for (const person of people) {

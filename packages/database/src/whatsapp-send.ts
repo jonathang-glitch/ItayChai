@@ -8,7 +8,7 @@ import {
   type WhatsAppButton,
   type WhatsAppSendRequestedPayload,
 } from '@itay-chai/contracts';
-import { normalizeWhatsAppId } from '@itay-chai/domain';
+import { deskAskFromLastBot, normalizeWhatsAppId, type DeskAsk } from '@itay-chai/domain';
 import { prisma } from './index.js';
 import type { Prisma } from '@prisma/client';
 
@@ -49,8 +49,15 @@ export async function enqueueWhatsAppSend(
     aggregateId: string;
     correlationId?: string;
     buttons?: WhatsAppButton[];
+    deskAsk?: DeskAsk;
   },
 ) {
+  if (input.deskAsk) {
+    await tx.employee.updateMany({
+      where: { tenantId: input.tenantId, userId: input.userId },
+      data: { deskAsk: input.deskAsk },
+    });
+  }
   const identity = await tx.stakeholderIdentity.findFirst({
     where: {
       tenantId: input.tenantId,
@@ -112,9 +119,32 @@ export async function enqueueWhatsAppSendNow(
     aggregateType: string;
     aggregateId: string;
     buttons?: WhatsAppButton[];
+    deskAsk?: DeskAsk;
   },
 ) {
   return prisma.$transaction((tx) => enqueueWhatsAppSend(tx, input));
+}
+
+export async function getDeskAsk(tenantId: string, userId: string) {
+  const row = await prisma.employee.findFirst({
+    where: { tenantId, userId },
+    select: { deskAsk: true },
+  });
+  if (
+    row?.deskAsk === 'confirm_swap' ||
+    row?.deskAsk === 'pick_cover' ||
+    row?.deskAsk === 'pick_swap' ||
+    row?.deskAsk === 'pick_either' ||
+    row?.deskAsk === 'none'
+  ) {
+    return row.deskAsk;
+  }
+  const last = await prisma.message.findFirst({
+    where: { tenantId, direction: 'OUTBOUND', session: { customerUserId: userId } },
+    orderBy: { createdAt: 'desc' },
+    select: { body: true },
+  });
+  return deskAskFromLastBot(last?.body);
 }
 
 export async function enqueueOwnerWhatsApp(

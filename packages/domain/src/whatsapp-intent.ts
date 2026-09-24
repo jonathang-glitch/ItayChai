@@ -97,6 +97,9 @@ export function classifyWhatsAppText(raw?: string): WhatsAppTextIntent {
   if (/(לא יכולה? להגיע|לא אוכל להגיע|לא אגיע|לא מגיע למשמרת)/u.test(folded)) {
     return 'new';
   }
+  if (/לכסות|כיסוי|אני אכסה|אכסה|לוקחת? את המשמרת|אני אקח|(^|\s)cover(\s|$)/u.test(folded)) {
+    return 'cover';
+  }
   if (
     (/^(לא|no)(?:\s|$)/u.test(folded) ||
       /(לא רוצה|לא תודה|תודה לא|אין לי|לא יכולה|לא יכול|לא מעוניינ|לא מתאים|לא מעניין|לא הפעם|לא כרגע|לא אפשרי|אי אפשר|אין אפשרות|אין סיכוי|עדיף שלא|נראה לי שלא|קשה לי|עסוקה|עסוק|מוותרת?|חוזרת בי|סליחה|לא ממש|לא נוח|nope|cannot|can'?t|(^|\s)no(\s|$))/u.test(
@@ -105,9 +108,6 @@ export function classifyWhatsAppText(raw?: string): WhatsAppTextIntent {
     !/מאשר/.test(folded)
   ) {
     return 'no';
-  }
-  if (/(כיסוי|אני אכסה|אכסה|לוקחת? את המשמרת|אני אקח|(^|\s)cover(\s|$))/u.test(folded) && !/החלפה|להחליף/.test(folded)) {
-    return 'cover';
   }
   if (/(החלפה|להחליף|נחליף|מחליפים|(^|\s)swap(\s|$))/u.test(folded)) {
     return 'swap';
@@ -122,10 +122,18 @@ export function classifyWhatsAppText(raw?: string): WhatsAppTextIntent {
   if (/(^|\s)(כן|בטח|אשמח|סבבה|יאללה|ברור|כמובן|בשמחה)(\s|$)/u.test(folded) && !/^(לא|no)(?:\s|$)/u.test(folded)) {
     return 'yes';
   }
-  if (/צריך מחליף|רוצה מחליף|צריכה מחליף/.test(folded)) {
+  if (
+    /צריך מחליף|רוצה מחליף|צריכה מחליף|יחליף אותי|יקח במקומי|במקומי|מישהו יחליף|מישהו יקח|שתחליף אותי/.test(
+      folded,
+    )
+  ) {
     return 'new';
   }
-  if (/(משמרות|המשמרות|מה יש לי|איזה משמרות)/u.test(folded)) {
+  if (
+    (/^(משמרות|המשמרות)$/u.test(folded) ||
+      /(מה המשמרות|המשמרות שלי|איזה משמרות|מה יש לי)/u.test(folded)) &&
+    !/(יחליף|יקח|במקומי|להחליף|החלפה|כיסוי|מחליף)/u.test(folded)
+  ) {
     return 'roster';
   }
   if (/(משהו אחר|מה עוד|מה אפשר|איך אפשר|אפשרויות|מה אפשר לעשות)/u.test(folded)) {
@@ -141,6 +149,23 @@ export function classifyWhatsAppText(raw?: string): WhatsAppTextIntent {
   return 'unknown';
 }
 
+export function requestedArrangement(raw?: string): 'cover' | 'swap' | null {
+  const folded = fold(raw);
+  if (!folded || /^(למה|מה|מי|איזה|איך)\b/u.test(folded)) {
+    return null;
+  }
+  const cover = /לכסות|כיסוי/.test(folded);
+  const swap = /החלפה|להחליף|נחליף/.test(folded);
+  const refusesSwap = /לא (?:יכול|יכולה|רוצה) להחליף|בלי החלפה/.test(folded);
+  if (cover && (!swap || refusesSwap)) {
+    return 'cover';
+  }
+  if (swap && !cover && !refusesSwap) {
+    return 'swap';
+  }
+  return null;
+}
+
 export function isSandboxJoin(raw?: string) {
   return /^(join|stop)\b/iu.test(fold(raw));
 }
@@ -150,23 +175,9 @@ export function isShortReply(raw?: string) {
   return folded.length > 0 && folded.length <= 24 && folded.split(/\s+/).length <= 3;
 }
 
-export function shouldClassifyWithGemini(raw?: string, intent = classifyWhatsAppText(raw)) {
-  if (isSandboxJoin(raw)) {
-    return false;
-  }
-  if (intent === 'hello' || intent === 'roster' || intent === 'cancel' || intent === 'accept') {
-    return false;
-  }
-  if (
-    isShortReply(raw) &&
-    (intent === 'yes' ||
-      intent === 'no' ||
-      intent === 'decline_match' ||
-      intent === 'cover' ||
-      intent === 'swap' ||
-      intent === 'either' ||
-      intent === 'help')
-  ) {
+export function shouldClassifyWithGemini(raw?: string, _intent = classifyWhatsAppText(raw)) {
+  void _intent;
+  if (isSandboxJoin(raw) || !fold(raw)) {
     return false;
   }
   return true;
@@ -271,10 +282,10 @@ export function inferRequestKind(intent: WhatsAppTextIntent): 'COVER' | 'SWAP' |
   if (intent === 'swap') {
     return 'SWAP';
   }
-  if (intent === 'either') {
-    return 'EITHER';
+  if (intent === 'cover') {
+    return 'COVER';
   }
-  return 'COVER';
+  return 'EITHER';
 }
 
 export function parseWhatsAppButton(buttonId?: string): WhatsAppButtonIntent | null {

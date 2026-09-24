@@ -67,7 +67,7 @@ export function offerAsk(kind: ShiftRequestKind, requester: string, wanted: stri
 
 export function whatsAppReplyHint(kind: ShiftRequestKind) {
   if (kind === 'SWAP') {
-    return 'כתבי את המשמרת שאת רוצה לתת, או לא.';
+    return 'אפשר לכתוב את המשמרת שרוצים לתת, או לא.';
   }
   if (kind === 'EITHER') {
     return 'אפשר לכתוב כיסוי, את המשמרת שאת רוצה לתת, או לא.';
@@ -86,13 +86,12 @@ export function swapProposed(
   forRequester: boolean,
   requester = '',
 ) {
+  void requester;
   const offered = offeredAt ? shiftTalkWithDate(offeredAt) : '';
   const wanted = shiftTalk(wantedAt);
   if (forRequester) {
     const ready = isFeminineName(name) ? 'מוכנה' : 'מוכן';
-    const youDo = isFeminineName(requester) ? 'את תעשי' : 'אתה תעשה';
-    const ask = isFeminineName(requester) ? 'האם מאשרת?' : 'האם מאשר?';
-    return `${name} ${ready} להחליף. כך ש${youDo} ${offered}.\n${ask}`;
+    return `${name} ${ready} להחליף. אחרי האישור המשמרת תהיה ${offered}.\nלאשר את ההחלפה?`;
   }
   return `שאלנו את המבקש. ${wanted} תמורת ${offered}.`;
 }
@@ -137,8 +136,9 @@ export function requesterRefused() {
   return 'המבקש לא אישר את ההחלפה.';
 }
 
-export function unfilled(label: string) {
-  return `לא נמצא פתרון ל${label}.`;
+export function unfilled(label: string, because?: string) {
+  const reason = because?.trim();
+  return reason ? `לא נמצא פתרון ל${label}. ${reason}` : `לא נמצא פתרון ל${label}.`;
 }
 
 export function howToStart() {
@@ -146,7 +146,7 @@ export function howToStart() {
 }
 
 export function whatElse() {
-  return 'אפשר לנסות כיסוי במקום החלפה, או לבקש משמרת אחרת. כתבי כיסוי, החלפה, או משמרות.';
+  return 'אפשר לנסות כיסוי במקום החלפה, או לבקש משמרת אחרת. אפשר לכתוב כיסוי, החלפה, או משמרות.';
 }
 
 export function didNotUnderstand() {
@@ -160,11 +160,18 @@ export function myShifts(labels: string[] = []) {
   return ['המשמרות שלך:', ...labels].join('\n');
 }
 
+export function pickWhichShift(choices: string[] = []) {
+  if (!choices.length) {
+    return 'איזו משמרת? אפשר לכתוב את היום, או לא.';
+  }
+  return ['באיזו משמרת? אפשר לכתוב אחת מהרשימה:', ...choices].join('\n');
+}
+
 export function pickSwapAgain(choices: string[] = []) {
   if (!choices.length) {
-    return 'איזו משמרת להחליף? כתבי את המשמרת, או לא.';
+    return 'איזו משמרת להחליף? אפשר לכתוב את המשמרת, או לא.';
   }
-  return ['איזו משמרת להחליף?', ...choices, 'כתבי את המשמרת שאת רוצה לתת, או לא.'].join('\n');
+  return ['איזו משמרת להחליף?', ...choices, 'אפשר לכתוב את המשמרת שרוצים לתת, או לא.'].join('\n');
 }
 
 export function searchSummary(

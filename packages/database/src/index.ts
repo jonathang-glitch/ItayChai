@@ -29,12 +29,14 @@ export {
   enqueueWhatsAppSend,
   enqueueWhatsAppSendNow,
   findWhatsAppIdentity,
+  getDeskAsk,
 } from './whatsapp-send.js';
 export {
   didNotUnderstand,
   howToStart,
   myShifts,
   pickSwapAgain,
+  pickWhichShift,
   shiftTalkWithDate,
   whatElse,
 } from './shift-copy.js';

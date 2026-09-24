@@ -8,6 +8,7 @@ import {
   matchShiftFromText,
   normalizeWhatsAppId,
   parseWhatsAppButton,
+  requestedArrangement,
   shouldClassifyWithGemini,
 } from './whatsapp-intent.js';
 
@@ -61,13 +62,23 @@ test('classifies Hebrew offer and match replies', () => {
   assert.equal(classifyMatchReply('לא בא לי סבבה?'), 'unknown');
   assert.equal(isSandboxJoin('join solar-well'), true);
   assert.equal(shouldClassifyWithGemini('אני לא מרגישה טוב נראלי אני לא אוכל להגיע למשמרת'), true);
-  assert.equal(shouldClassifyWithGemini('מאשר'), false);
+  assert.equal(shouldClassifyWithGemini('אני רוצה שמישהו יקח במקומי את אחת מהמשמרות שלי', 'roster'), true);
+  assert.equal(shouldClassifyWithGemini('מאשר'), true);
+  assert.equal(shouldClassifyWithGemini('משמרות'), true);
   assert.equal(classifyWhatsAppText('צריך מחליף בשישי'), 'new');
   assert.equal(classifyWhatsAppText('אני מרגיש טוב נראה לי לא יכול להגיע למשמרת'), 'new');
+  assert.equal(classifyWhatsAppText('אני רוצה שמישהו יחליף אותי באחת מהמשמרות'), 'new');
+  assert.equal(classifyWhatsAppText('אני רוצה שמישהו יקח במקומי את אחת מהמשמרות שלי'), 'new');
+  assert.equal(requestedArrangement('אני לא יכול להחליף איתו הוא יכול לכסות עלי?'), 'cover');
+  assert.equal(requestedArrangement('למה מה המשמרות של יוסי?'), null);
+  assert.equal(classifyWhatsAppText('אני לא יכול להחליף איתו הוא יכול לכסות עלי?'), 'cover');
+  assert.equal(classifyWhatsAppText('משמרות'), 'roster');
   assert.equal(classifyWhatsAppText('מה המשמרות שלי השבוע'), 'roster');
   assert.equal(classifyWhatsAppText('איזה משמרות יש לי'), 'roster');
-  assert.equal(inferRequestKind('new'), 'COVER');
+  assert.equal(inferRequestKind('new'), 'EITHER');
+  assert.equal(inferRequestKind('cover'), 'COVER');
   assert.equal(inferRequestKind('swap'), 'SWAP');
+  assert.equal(inferRequestKind('either'), 'EITHER');
 });
 
 test('parses offer and match button ids', () => {
