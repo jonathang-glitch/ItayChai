@@ -142,6 +142,7 @@ export async function createCustomerRequest(input: {
     const text =
       input.text?.trim() ||
       (label ? (input.kind ? requestIntentText(input.kind, label) : swapRequestText(label)) : 'צריך החלפת משמרת');
+    const businessUnitId = membership?.businessUnitId ?? employee?.businessUnitId;
     const created = await ingestMockWhatsApp(
       {
         externalMessageId: `${customerRequestPrefix(userId)}${randomUUID()}`,
@@ -150,7 +151,7 @@ export async function createCustomerRequest(input: {
       {
         tenantId,
         customerUserId: userId,
-        ...(membership?.businessUnitId ? { businessUnitId: membership.businessUnitId } : {}),
+        ...(businessUnitId ? { businessUnitId } : {}),
       },
     );
     try {

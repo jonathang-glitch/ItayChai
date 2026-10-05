@@ -15,13 +15,56 @@ import type { Prisma } from '@prisma/client';
 type Tx = Prisma.TransactionClient;
 
 const PLACEHOLDER_WHATSAPP = /^\+97250000000\d$/;
+const LOCAL_DESK_USER_ID = '00000000-0000-4000-8000-000000000017';
 
 function isLiveTwilio() {
   return (process.env.WHATSAPP_PROVIDER ?? 'mock') === 'twilio';
 }
 
+export function isLocalDeskUser(userId: string) {
+  return isLiveTwilio() && userId === LOCAL_DESK_USER_ID;
+}
+
 function siteWhatsAppText(body: string) {
   return body === 'Your request was received.' ? MOCK_WHATSAPP_REPLY : body;
+}
+
+async function writeLocalDesk(tx: Tx, tenantId: string, userId: string, body: string) {
+  const latest = await tx.message.findFirst({
+    where: {
+      tenantId,
+      direction: 'OUTBOUND',
+      body,
+      session: { customerUserId: userId },
+      createdAt: { gt: new Date(Date.now() - 3000) },
+    },
+    select: { id: true },
+  });
+  if (latest) {
+    return;
+  }
+  const desk = await tx.agentSession.upsert({
+    where: {
+      tenantId_externalMessageId: { tenantId, externalMessageId: `notice:${userId}:desk` },
+    },
+    create: {
+      tenantId,
+      customerUserId: userId,
+      externalMessageId: `notice:${userId}:desk`,
+      status: 'COMPLETED',
+    },
+    update: {},
+    select: { id: true },
+  });
+  await tx.message.create({
+    data: {
+      tenantId,
+      sessionId: desk.id,
+      direction: 'OUTBOUND',
+      channel: WHATSAPP_PROVIDER,
+      body,
+    },
+  });
 }
 
 function skipPlaceholderOnTwilio(phone: string) {
@@ -57,6 +100,10 @@ export async function enqueueWhatsAppSend(
       where: { tenantId: input.tenantId, userId: input.userId },
       data: { deskAsk: input.deskAsk },
     });
+  }
+  if (isLiveTwilio() && input.userId === LOCAL_DESK_USER_ID) {
+    await writeLocalDesk(tx, input.tenantId, input.userId, siteWhatsAppText(input.body));
+    return null;
   }
   const identity = await tx.stakeholderIdentity.findFirst({
     where: {
@@ -153,9 +200,6 @@ export async function enqueueOwnerWhatsApp(
   body: string,
   aggregateId: string,
 ) {
-  if (isLiveTwilio()) {
-    return null;
-  }
   const owner = await tx.tenantMembership.findFirst({
     where: { tenantId, status: 'ACTIVE', role: { name: ROLE_NAMES.OWNER } },
     select: { userId: true },

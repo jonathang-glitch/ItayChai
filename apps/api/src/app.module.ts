@@ -6,6 +6,7 @@ import { HealthModule } from './health/health.module';
 import { InvitationsModule } from './invitations/invitations.module';
 import { OpsModule } from './ops/ops.module';
 import { CustomerModule } from './customer/customer.module';
+import { RosterModule } from './roster/roster.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { WhatsAppWebhookModule } from './webhooks/whatsapp/whatsapp-webhook.module';
 
@@ -19,6 +20,7 @@ import { WhatsAppWebhookModule } from './webhooks/whatsapp/whatsapp-webhook.modu
     SessionsModule,
     OpsModule,
     InvitationsModule,
+    RosterModule,
     DevicesModule,
   ],
 })

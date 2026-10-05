@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { MOCK_WHATSAPP_REPLY } from '@itay-chai/contracts';
 import type { WhatsAppAdapter, WhatsAppInbound, WhatsAppSendInput, WhatsAppSendResult } from './whatsapp.js';
 
@@ -63,6 +64,46 @@ function routeFor(to: string) {
   };
 }
 
+export function verifyTwilioSignature(input: {
+  url: string;
+  params: Record<string, string>;
+  signature: string | undefined;
+  authToken: string | undefined;
+}) {
+  if (!input.authToken || !input.signature || !input.url) {
+    return false;
+  }
+  const payload = Object.keys(input.params)
+    .sort()
+    .reduce((url, key) => `${url}${key}${input.params[key]}`, input.url);
+  const expected = createHmac('sha1', input.authToken).update(payload, 'utf8').digest('base64');
+  const left = Buffer.from(input.signature);
+  const right = Buffer.from(expected);
+  return left.length === right.length && timingSafeEqual(left, right);
+}
+
+function paramsFromRaw(rawBody: string) {
+  if (!rawBody) {
+    return null;
+  }
+  try {
+    if (rawBody.startsWith('{')) {
+      const parsed = JSON.parse(rawBody) as Record<string, unknown>;
+      const params: Record<string, string> = {};
+      for (const [key, value] of Object.entries(parsed)) {
+        if (typeof value !== 'string') {
+          return null;
+        }
+        params[key] = value;
+      }
+      return params;
+    }
+    return Object.fromEntries(new URLSearchParams(rawBody));
+  } catch {
+    return null;
+  }
+}
+
 export class TwilioWhatsAppAdapter implements WhatsAppAdapter {
   async reply(): Promise<{ body: string }> {
     return { body: MOCK_WHATSAPP_REPLY };
@@ -104,8 +145,17 @@ export class TwilioWhatsAppAdapter implements WhatsAppAdapter {
     });
   }
 
-  verifyWebhook(): boolean {
-    return true;
+  verifyWebhook(headers: Record<string, string | undefined>, rawBody: string): boolean {
+    const params = paramsFromRaw(rawBody);
+    if (!params) {
+      return false;
+    }
+    return verifyTwilioSignature({
+      url: headers['x-request-url'] ?? '',
+      params,
+      signature: headers['x-twilio-signature'],
+      authToken: process.env.TWILIO_AUTH_TOKEN,
+    });
   }
 
   parseInbound(payload: unknown): WhatsAppInbound | null {

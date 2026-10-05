@@ -2,6 +2,7 @@ import { Body, Controller, HttpCode, Post } from '@nestjs/common';
 import { z } from 'zod';
 import { login as loginUser, logout as logoutSession, refresh as refreshSession } from './auth.service';
 import { recover as startRecovery, resetPassword } from './recovery.service';
+import { signUp } from './signup.service';
 import { acceptInvitation } from '../invitations/invitations.service';
 import { parseBody } from '../http/parse-body';
 
@@ -28,6 +29,14 @@ const acceptSchema = z.object({
   password: z.string().min(8),
 });
 
+const signupSchema = z.object({
+  shopName: z.string().trim().min(2).max(80),
+  ownerName: z.string().trim().min(2).max(80),
+  email: z.string().trim().email(),
+  password: z.string().min(8).max(80),
+  whatsapp: z.string().trim().min(8).max(20),
+});
+
 @Controller('api/v1/auth')
 export class AuthController {
   @Post('login')
@@ -35,6 +44,12 @@ export class AuthController {
   login(@Body() body: unknown) {
     const parsed = parseBody(loginSchema, body);
     return loginUser(parsed.email, parsed.password);
+  }
+
+  @Post('signup')
+  @HttpCode(200)
+  signup(@Body() body: unknown) {
+    return signUp(parseBody(signupSchema, body));
   }
 
   @Post('refresh')

@@ -2,17 +2,17 @@ import { randomUUID } from 'node:crypto';
 import { PERMISSIONS, WHATSAPP_PROVIDER } from '@itay-chai/contracts';
 import { runWithTenant } from '@itay-chai/auth';
 import {
+  answerDeskQuestion,
   classifyMatchReply,
   classifyWhatsAppText,
   inferRequestKind,
+  isDeskQuestion,
   isSandboxJoin,
-  isShortReply,
   matchShiftFromText,
   parseWhatsAppButton,
   shouldClassifyWithGemini,
 } from '@itay-chai/domain';
 import {
-  didNotUnderstand,
   enqueueWhatsAppSendNow,
   howToStart,
   whatElse,
@@ -30,6 +30,7 @@ import {
 import { createWhatsAppAdapter } from '@itay-chai/integrations';
 import { createCustomerRequest, answerMatch, answerOffer, cancelCustomerSearch } from '../../customer/customer.service';
 import { applyGeminiIntent } from './apply-gemini';
+import { choosePendingOffer } from './pick-pending-offer';
 
 export type InboundResult = {
   ok: true;
@@ -53,17 +54,29 @@ async function recordInbound(tenantId: string, sessionId: string, body: string) 
   });
 }
 
-async function recordOfferInbound(tenantId: string, shiftId: string | undefined, body: string) {
-  if (!shiftId) {
+async function recordSpeaker(tenantId: string, userId: string, body: string) {
+  const recent = await prisma.message.findFirst({
+    where: {
+      tenantId,
+      direction: 'INBOUND',
+      body,
+      session: { customerUserId: userId },
+      createdAt: { gt: new Date(Date.now() - 5000) },
+    },
+    select: { id: true },
+  });
+  if (recent) {
     return;
   }
-  const request = await prisma.shiftSwapRequest.findFirst({
-    where: { tenantId, shiftId },
-    select: { sessionId: true },
+  const session = await prisma.agentSession.findFirst({
+    where: { tenantId, customerUserId: userId },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true },
   });
-  if (request) {
-    await recordInbound(tenantId, request.sessionId, body);
+  if (!session) {
+    return;
   }
+  await recordInbound(tenantId, session.id, body);
 }
 
 async function lockReceipt(tenantId: string, externalMessageId: string) {
@@ -93,13 +106,7 @@ async function routeIdentified(
   const button = parseWhatsAppButton(inbound.buttonId);
   if (button?.kind === 'offer') {
     await answerOffer(button.offerId, button.action, button.proposedShiftId);
-    const offer = await prisma.shiftOffer.findUnique({
-      where: { id: button.offerId },
-      select: { request: { select: { sessionId: true } } },
-    });
-    if (offer) {
-      await recordInbound(identity.tenantId, offer.request.sessionId, spoken);
-    }
+    await recordSpeaker(identity.tenantId, identity.userId, spoken);
     return { ok: true, handled: 'offer' };
   }
   if (button?.kind === 'match') {
@@ -119,7 +126,8 @@ async function routeIdentified(
 
   const intent = classifyWhatsAppText(inbound.text);
   const offers = (await listIncomingOffers(identity.userId)).filter((row) => row.status === 'PENDING');
-  const pending = offers.length === 1 ? offers[0] : undefined;
+  const choice = choosePendingOffer(offers, spoken, intent);
+  const pending = choice.offer;
   const matchSession = await prisma.shiftSwapRequest.findFirst({
     where: {
       tenantId: identity.tenantId,
@@ -145,6 +153,80 @@ async function routeIdentified(
   const refuses = matchReply === 'decline' || intent === 'decline_match';
   const ask = await getDeskAsk(identity.tenantId, identity.userId);
 
+  if (isDeskQuestion(inbound.text)) {
+    const mine = await listMyShifts(identity.userId);
+    const upcoming = mine.filter((shift) => new Date(shift.endsAt).getTime() > Date.now());
+    const mineLabels = (upcoming.length ? upcoming : mine).map((shift) =>
+      shift.startsAt ? shiftTalkWithDate(new Date(shift.startsAt)) : shift.label,
+    );
+    const me = await prisma.employee.findFirst({
+      where: { tenantId: identity.tenantId, userId: identity.userId },
+      select: { id: true, businessUnitId: true },
+    });
+    const people = me
+      ? await prisma.employee.findMany({
+          where: { tenantId: identity.tenantId, businessUnitId: me.businessUnitId, id: { not: me.id } },
+          select: {
+            displayName: true,
+            shifts: {
+              where: { endsAt: { gt: new Date() } },
+              orderBy: { startsAt: 'asc' },
+              select: { startsAt: true },
+            },
+          },
+        })
+      : [];
+    const search = me
+      ? await prisma.shiftSwapRequest.findFirst({
+          where: { tenantId: identity.tenantId, employeeId: me.id, status: { in: ['SEEKING', 'MATCH_PROPOSED', 'UNFILLED'] } },
+          orderBy: { createdAt: 'desc' },
+          select: { kind: true, status: true, shift: { select: { startsAt: true } } },
+        })
+      : null;
+    const wanted = pending?.requestedShift?.startsAt
+      ? shiftTalkWithDate(new Date(pending.requestedShift.startsAt))
+      : '';
+    await enqueueWhatsAppSendNow({
+      tenantId: identity.tenantId,
+      userId: identity.userId,
+      body: answerDeskQuestion(spoken, {
+        pending:
+          pending && wanted
+            ? {
+                name: pending.requesterName,
+                label: wanted,
+                allowCover: pending.allowCover,
+                allowSwap: pending.allowSwap,
+              }
+            : null,
+        mine: mineLabels,
+        team: people.map((person) => ({
+          name: person.displayName,
+          shifts: person.shifts.map((shift) => shiftTalkWithDate(shift.startsAt)),
+        })),
+        search: search?.shift
+          ? { kind: search.kind, label: shiftTalkWithDate(search.shift.startsAt), status: search.status }
+          : null,
+      }),
+      aggregateType: 'WhatsAppInbound',
+      aggregateId: pending?.id ?? randomUUID(),
+      deskAsk: 'none',
+    });
+    return { ok: true, handled: 'unparsed' };
+  }
+
+  if (choice.ask) {
+    await enqueueWhatsAppSendNow({
+      tenantId: identity.tenantId,
+      userId: identity.userId,
+      body: choice.ask,
+      aggregateType: 'WhatsAppInbound',
+      aggregateId: pending?.id ?? randomUUID(),
+      deskAsk: 'none',
+    });
+    return { ok: true, handled: 'need_pick' };
+  }
+
   const tryGemini = async () => {
     if (!shouldClassifyWithGemini(inbound.text, intent)) {
       return null;
@@ -165,17 +247,6 @@ async function routeIdentified(
     }
   } catch (error) {
     console.warn('gemini_route_failed', error instanceof Error ? error.message : 'error');
-  }
-  if (!isShortReply(inbound.text)) {
-    await enqueueWhatsAppSendNow({
-      tenantId: identity.tenantId,
-      userId: identity.userId,
-      body: 'לא הצלחתי לקרוא את ההודעה. אפשר לשלוח אותה שוב.',
-      aggregateType: 'WhatsAppInbound',
-      aggregateId: randomUUID(),
-      deskAsk: 'none',
-    });
-    return { ok: true, handled: 'unparsed' };
   }
   if (intent === 'hello') {
     await enqueueWhatsAppSendNow({
@@ -204,12 +275,12 @@ async function routeIdentified(
   }
   if (pending && namedShift && intent !== 'cancel') {
     await answerOffer(pending.id, 'swap', namedShift);
-    await recordOfferInbound(identity.tenantId, pending.requestedShift?.id, spoken);
+    await recordSpeaker(identity.tenantId, identity.userId, spoken);
     return { ok: true, handled: 'offer' };
   }
   if (pending && (intent === 'no' || intent === 'decline_match' || matchReply === 'decline')) {
     await answerOffer(pending.id, 'decline');
-    await recordOfferInbound(identity.tenantId, pending.requestedShift?.id, spoken);
+    await recordSpeaker(identity.tenantId, identity.userId, spoken);
     return { ok: true, handled: 'offer' };
   }
   if (pending && (intent === 'yes' || intent === 'cover' || intent === 'swap' || intent === 'either')) {
@@ -217,7 +288,7 @@ async function routeIdentified(
     const both = pending.allowCover && pending.allowSwap;
     if (intent === 'cover' || (intent === 'yes' && onlyCover)) {
       await answerOffer(pending.id, 'cover');
-      await recordOfferInbound(identity.tenantId, pending.requestedShift?.id, spoken);
+      await recordSpeaker(identity.tenantId, identity.userId, spoken);
       return { ok: true, handled: 'offer' };
     }
     if ((intent === 'yes' || intent === 'either') && both) {
@@ -247,7 +318,7 @@ async function routeIdentified(
       return { ok: true, handled: 'need_pick' };
     }
     await answerOffer(pending.id, 'swap', proposed);
-    await recordOfferInbound(identity.tenantId, pending.requestedShift?.id, spoken);
+    await recordSpeaker(identity.tenantId, identity.userId, spoken);
     return { ok: true, handled: 'offer' };
   }
 

@@ -3,10 +3,12 @@ import { decideShiftRequest, listOwnerRequests } from './api';
 import { COPY } from './copy';
 import { isDone, isOpen, onOwnerDesk } from './format';
 import { membershipOf, readCachedInbox, writeCachedInbox } from './session';
+import { OwnerRoster } from './owner-roster';
 import { ShiftCard } from './shift-card';
 import type { AuthSession, RequestItem } from './types';
 
 type Filter = 'all' | 'open' | 'done';
+type View = 'desk' | 'roster';
 
 type Props = {
   session: AuthSession;
@@ -15,6 +17,7 @@ type Props = {
 export function OwnerHome({ session }: Props) {
   const membership = membershipOf(session);
   const [items, setItems] = useState<RequestItem[]>(() => readCachedInbox(session.userId));
+  const [view, setView] = useState<View>('desk');
   const [filter, setFilter] = useState<Filter>('open');
   const [note, setNote] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -83,6 +86,17 @@ export function OwnerHome({ session }: Props) {
   return (
     <main className="workspace owner-desk">
       <div className="filters">
+        <button type="button" className={view === 'desk' ? 'on' : ''} onClick={() => setView('desk')}>
+          {COPY.desk}
+        </button>
+        <button type="button" className={view === 'roster' ? 'on' : ''} onClick={() => setView('roster')}>
+          {COPY.roster}
+        </button>
+      </div>
+      {view === 'roster' ? <OwnerRoster session={session} /> : null}
+      {view === 'desk' ? (
+      <>
+      <div className="filters">
         {(['open', 'done', 'all'] as const).map((key) => (
           <button key={key} type="button" className={filter === key ? 'on' : ''} onClick={() => setFilter(key)}>
             {key === 'all' ? COPY.all : key === 'open' ? `${COPY.open} (${open})` : `${COPY.done} (${done})`}
@@ -103,6 +117,8 @@ export function OwnerHome({ session }: Props) {
           </li>
         ))}
       </ol>
+      </>
+      ) : null}
     </main>
   );
 }

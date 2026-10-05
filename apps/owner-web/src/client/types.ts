@@ -73,6 +73,28 @@ export type IncomingOffer = {
   requestStatus: string;
 };
 
+export type RosterWorker = {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  upcomingShifts: number;
+};
+
+export type RosterShift = {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  label: string;
+  startsAt: string;
+  endsAt: string;
+};
+
+export type ShopProfile = {
+  shopName: string;
+  whatsapp: string | null;
+};
+
 export type CustomerHomeData = {
   requests: RequestItem[];
   shifts: ShiftItem[];

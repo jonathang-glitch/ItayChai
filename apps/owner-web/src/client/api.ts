@@ -1,5 +1,5 @@
 import { publishSession, readSession } from './session';
-import type { AuthSession, CustomerHomeData, RequestItem, ShiftItem } from './types';
+import type { AuthSession, CustomerHomeData, RequestItem, RosterShift, RosterWorker, ShiftItem, ShopProfile } from './types';
 
 async function readJson<T>(response: Response): Promise<T> {
   const text = await response.text();
@@ -78,6 +78,96 @@ export function login(email: string, password: string) {
   return requestJson<AuthSession>('/api/v1/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
+  });
+}
+
+export function signup(input: {
+  shopName: string;
+  ownerName: string;
+  email: string;
+  password: string;
+  whatsapp: string;
+}) {
+  return requestJson<AuthSession>('/api/v1/auth/signup', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function listRosterWorkers(token: string, tenantId: string) {
+  return requestJson<{ workers: RosterWorker[] }>('/api/v1/roster/workers', { token, tenantId });
+}
+
+export function createRosterWorker(
+  token: string,
+  tenantId: string,
+  input: { name: string; email: string; password: string; whatsapp: string },
+) {
+  return requestJson<RosterWorker & { password?: string }>('/api/v1/roster/workers', {
+    method: 'POST',
+    token,
+    tenantId,
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateRosterWorker(
+  token: string,
+  tenantId: string,
+  id: string,
+  input: { name?: string; password?: string; whatsapp?: string },
+) {
+  return requestJson<{ id: string; name?: string; phone?: string; password?: string }>(`/api/v1/roster/workers/${id}`, {
+    method: 'PATCH',
+    token,
+    tenantId,
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteRosterWorker(token: string, tenantId: string, id: string) {
+  return requestJson<{ ok?: boolean; message?: string }>(`/api/v1/roster/workers/${id}`, {
+    method: 'DELETE',
+    token,
+    tenantId,
+  });
+}
+
+export function listRosterShifts(token: string, tenantId: string) {
+  return requestJson<{ shifts: RosterShift[] }>('/api/v1/roster/shifts', { token, tenantId });
+}
+
+export function createRosterShift(
+  token: string,
+  tenantId: string,
+  input: { employeeId: string; startsAt: string; endsAt: string },
+) {
+  return requestJson<RosterShift>('/api/v1/roster/shifts', {
+    method: 'POST',
+    token,
+    tenantId,
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteRosterShift(token: string, tenantId: string, id: string) {
+  return requestJson<{ ok?: boolean; message?: string }>(`/api/v1/roster/shifts/${id}`, {
+    method: 'DELETE',
+    token,
+    tenantId,
+  });
+}
+
+export function getShopProfile(token: string, tenantId: string) {
+  return requestJson<ShopProfile>('/api/v1/roster/me', { token, tenantId });
+}
+
+export function updateShopPhone(token: string, tenantId: string, whatsapp: string) {
+  return requestJson<{ whatsapp: string }>('/api/v1/roster/me', {
+    method: 'PATCH',
+    token,
+    tenantId,
+    body: JSON.stringify({ whatsapp }),
   });
 }
 

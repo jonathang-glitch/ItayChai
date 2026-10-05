@@ -9,11 +9,38 @@ import {
   InternalServerErrorException,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { loadEnv } from '@itay-chai/config';
 import { mockWhatsAppWebhookSchema } from '@itay-chai/contracts';
+import { createWhatsAppAdapter } from '@itay-chai/integrations';
 import { handleWhatsAppInbound } from './handle-inbound';
 import { ingestMockWhatsApp } from './whatsapp-webhook.service';
+
+function webhookUrl(req: Request) {
+  const configured = process.env.TWILIO_WEBHOOK_URL?.trim();
+  if (configured) {
+    return configured;
+  }
+  const proto = req.header('x-forwarded-proto')?.split(',')[0]?.trim() || req.protocol;
+  const host = req.header('x-forwarded-host')?.split(',')[0]?.trim() || req.header('host');
+  return `${proto}://${host}${req.originalUrl}`;
+}
+
+function stringParams(body: unknown) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return null;
+  }
+  const params: Record<string, string> = {};
+  for (const [key, value] of Object.entries(body)) {
+    if (typeof value !== 'string') {
+      return null;
+    }
+    params[key] = value;
+  }
+  return params;
+}
 
 @Controller('api/v1/webhooks/whatsapp')
 export class WhatsAppWebhookController {
@@ -33,7 +60,20 @@ export class WhatsAppWebhookController {
 
   @Post()
   @HttpCode(200)
-  inbound(@Body() body: unknown) {
+  inbound(@Req() req: Request, @Body() body: unknown) {
+    if ((process.env.WHATSAPP_PROVIDER ?? 'mock') === 'twilio') {
+      const params = stringParams(body);
+      const signature = req.header('x-twilio-signature');
+      const accepted =
+        params &&
+        createWhatsAppAdapter().verifyWebhook(
+          { 'x-twilio-signature': signature, 'x-request-url': webhookUrl(req) },
+          JSON.stringify(params),
+        );
+      if (!accepted) {
+        throw new ForbiddenException();
+      }
+    }
     return handleWhatsAppInbound(body);
   }
 
