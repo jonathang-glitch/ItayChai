@@ -92,6 +92,47 @@ test('classifies Hebrew offer and match replies', () => {
     'לא. אין לך משמרת בחמישי בבוקר.',
   );
   assert.equal(answerDeskQuestion('יש לי משמרת בשבת?', { mine }), 'לא. אין לך משמרת בשבת.');
+  const today = new Date('2026-10-08T12:00:00Z');
+  const stamp = new Intl.DateTimeFormat('he-IL', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'Asia/Jerusalem',
+  }).format(today);
+  const withToday = [`חמישי בערב (${stamp})`, 'חמישי בבוקר (15 באוק׳)'];
+  assert.equal(
+    answerDeskQuestion('האם אני עושה היום משמרת בוקר או ערב?', { mine: withToday }, today),
+    `היום יש לך משמרת ערב: חמישי בערב (${stamp})`,
+  );
+  assert.equal(
+    answerDeskQuestion('יש לי משמרת מחר?', { mine: withToday }, new Date('2026-10-07T12:00:00Z')),
+    `מחר יש לך משמרת ערב: חמישי בערב (${stamp})`,
+  );
+  const now = new Date('2026-10-08T12:00:00Z');
+  const dated = [
+    { label: `חמישי בערב (${stamp})`, startsAt: '2026-10-08T13:00:00.000Z' },
+    { label: 'ראשון בערב (11 באוק׳)', startsAt: '2026-10-11T13:00:00.000Z' },
+    { label: 'חמישי בבוקר (15 באוק׳)', startsAt: '2026-10-15T05:00:00.000Z' },
+  ];
+  assert.equal(
+    answerDeskQuestion('מה המשמרות שלי השבוע?', { mine: dated }, now),
+    `השבוע יש לך משמרת ערב: חמישי בערב (${stamp})`,
+  );
+  assert.equal(
+    answerDeskQuestion('מה המשמרות שלי שבוע הבא?', { mine: dated }, now),
+    'בשבוע הבא יש לך:\nראשון בערב (11 באוק׳)\nחמישי בבוקר (15 באוק׳)',
+  );
+  assert.equal(
+    answerDeskQuestion('יש לי משמרת בחמישי שבוע הבא?', { mine: dated }, now),
+    'בשבוע הבא חמישי יש לך משמרת בוקר: חמישי בבוקר (15 באוק׳)',
+  );
+  assert.equal(
+    answerDeskQuestion(
+      'מה המשמרות של יוסי מחר?',
+      { team: [{ name: 'יוסי', shifts: dated }] },
+      new Date('2026-10-07T12:00:00Z'),
+    ),
+    `מחר יש ליוסי משמרת ערב: חמישי בערב (${stamp})`,
+  );
   assert.equal(requestedArrangement('אני רוצה שמישהו יכסה לי את המשמרת מחר'), 'cover');
   assert.equal(classifyWhatsAppText('משמרות'), 'roster');
   assert.equal(classifyWhatsAppText('מה המשמרות שלי השבוע'), 'roster');

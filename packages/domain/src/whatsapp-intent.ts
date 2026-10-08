@@ -1,5 +1,6 @@
 import {
   jerusalemDayKey,
+  jerusalemWeekKey,
   SHIFT_MATCH_ACTIONS,
   SHIFT_OFFER_ACTIONS,
   type ShiftMatchAction,
@@ -342,52 +343,173 @@ export function isDeskQuestion(raw?: string) {
 
 const WEEKDAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'] as const;
 
-function answerAboutNamedDay(folded: string, mine: string[]) {
-  const day = WEEKDAYS.find((name) => mentions(folded, name));
-  if (!day || !/משמר|יש לי|מתי|עובד/.test(folded)) {
+type Talk = { label: string; startsAt?: string };
+
+function asTalks(items: Array<string | Talk> | undefined): Talk[] {
+  return (items ?? []).map((item) => (typeof item === 'string' ? { label: item } : item));
+}
+
+function dayStamp(date: Date) {
+  return new Intl.DateTimeFormat('he-IL', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'Asia/Jerusalem',
+  }).format(date);
+}
+
+function weekdayName(date: Date) {
+  return new Intl.DateTimeFormat('he-IL', { weekday: 'long', timeZone: 'Asia/Jerusalem' })
+    .format(date)
+    .replace(/^יום\s+/, '');
+}
+
+function jerusalemDay(date: Date, daysAhead: number) {
+  const [year, month, day] = jerusalemDayKey(date).split('-').map(Number);
+  return new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, (day ?? 1) + daysAhead, 12));
+}
+
+function addKey(day: string, days: number) {
+  return jerusalemDayKey(jerusalemDay(new Date(`${day}T12:00:00Z`), days));
+}
+
+function partOf(shift: Talk): 'בוקר' | 'ערב' | null {
+  if (shift.startsAt) {
+    const hour = Number(
+      new Intl.DateTimeFormat('en-GB', {
+        hour: '2-digit',
+        hourCycle: 'h23',
+        timeZone: 'Asia/Jerusalem',
+      }).format(new Date(shift.startsAt)),
+    );
+    return hour < 15 ? 'בוקר' : 'ערב';
+  }
+  const label = fold(shift.label);
+  if (mentions(label, 'בוקר')) {
+    return 'בוקר';
+  }
+  if (mentions(label, 'ערב')) {
+    return 'ערב';
+  }
+  return null;
+}
+
+function onDay(shift: Talk, dayName: string, stamp?: string) {
+  if (shift.startsAt) {
+    const start = new Date(shift.startsAt);
+    return stamp ? dayStamp(start) === stamp : weekdayName(start) === dayName;
+  }
+  return stamp ? shift.label.includes(stamp) : mentions(fold(shift.label), dayName);
+}
+
+function inWeek(shift: Talk, sunday: string) {
+  if (!shift.startsAt) {
+    return false;
+  }
+  const day = jerusalemDayKey(shift.startsAt);
+  return day >= sunday && day < addKey(sunday, 7);
+}
+
+function selectShifts(folded: string, shifts: Talk[], now: Date) {
+  const today = mentions(folded, 'היום');
+  const tomorrow = !today && mentions(folded, 'מחר');
+  const nextWeek = /שבוע\s+הבא/u.test(folded);
+  const thisWeek = !nextWeek && mentions(folded, 'השבוע');
+  const named = WEEKDAYS.find((name) => mentions(folded, name));
+  if (!today && !tomorrow && !nextWeek && !thisWeek && !named) {
     return null;
+  }
+  if (!/משמר|יש לי|מתי|עובד|עושה|מה/u.test(folded)) {
+    return null;
+  }
+  let chosen = shifts;
+  let when = '';
+  if (today || tomorrow) {
+    const date = today ? now : jerusalemDay(now, 1);
+    chosen = chosen.filter((shift) => onDay(shift, weekdayName(date), dayStamp(date)));
+    when = today ? 'היום' : 'מחר';
+  } else if (nextWeek || thisWeek) {
+    chosen = chosen.filter((shift) =>
+      inWeek(shift, jerusalemWeekKey(nextWeek ? jerusalemDay(now, 7) : now)),
+    );
+    when = nextWeek ? 'בשבוע הבא' : 'השבוע';
+  }
+  if (named && !today && !tomorrow) {
+    chosen = chosen.filter((shift) => onDay(shift, named));
+    when = when ? `${when} ${named}` : named;
   }
   const morning = mentions(folded, 'בוקר');
   const evening = mentions(folded, 'ערב');
-  let matches = mine.filter((label) => mentions(fold(label), day));
   if (morning && !evening) {
-    matches = matches.filter((label) => mentions(fold(label), 'בוקר'));
+    chosen = chosen.filter((shift) => partOf(shift) === 'בוקר');
   }
   if (evening && !morning) {
-    matches = matches.filter((label) => mentions(fold(label), 'ערב'));
+    chosen = chosen.filter((shift) => partOf(shift) === 'ערב');
   }
-  const when = `${day}${morning && !evening ? ' בבוקר' : evening && !morning ? ' בערב' : ''}`;
-  if (!matches.length) {
-    return `לא. אין לך משמרת ב${when}.`;
+  const partAsked = morning && !evening ? 'בוקר' : evening && !morning ? 'ערב' : '';
+  return { chosen, when, today, tomorrow, week: nextWeek || thisWeek, partAsked };
+}
+
+function sayShifts(picked: NonNullable<ReturnType<typeof selectShifts>>, name: string | null) {
+  const { chosen, when, today, tomorrow, week, partAsked } = picked;
+  const yours = name ? `ל${name}` : 'לך';
+  if (!chosen.length) {
+    if (today || tomorrow || week) {
+      return `${today || tomorrow ? 'לא. ' : ''}${when} אין ${yours} משמרת${partAsked ? ` ${partAsked}` : week ? 'ות' : ''}.`;
+    }
+    return `לא. אין ${yours} משמרת ב${when}${partAsked ? ` ב${partAsked}` : ''}.`;
   }
-  if (matches.length === 1) {
-    return `כן. ${matches[0]}`;
+  const lines = chosen.map((shift) => shift.label);
+  if (today || tomorrow) {
+    if (lines.length === 1) {
+      const part = partOf(chosen[0] ?? { label: '' });
+      return part
+        ? `${when} יש ${yours} משמרת ${part}: ${lines[0]}`
+        : `${when} יש ${yours} משמרת: ${lines[0]}`;
+    }
+    return `${when} יש ${yours}:\n${lines.join('\n')}`;
   }
-  return `כן.\n${matches.join('\n')}`;
+  if (week) {
+    if (lines.length === 1) {
+      const part = partOf(chosen[0] ?? { label: '' });
+      return part
+        ? `${when} יש ${yours} משמרת ${part}: ${lines[0]}`
+        : `${when} יש ${yours} משמרת: ${lines[0]}`;
+    }
+    return `${when} יש ${yours}:\n${lines.join('\n')}`;
+  }
+  if (lines.length === 1) {
+    return `כן. ${lines[0]}`;
+  }
+  return `כן. ב${when}:\n${lines.join('\n')}`;
 }
 
 export function answerDeskQuestion(
   text: string,
   facts: {
     pending?: { name: string; label: string; allowCover: boolean; allowSwap: boolean } | null;
-    mine?: string[];
-    team?: { name: string; shifts: string[] }[];
+    mine?: Array<string | Talk>;
+    team?: { name: string; shifts: Array<string | Talk> }[];
     search?: { kind: string; label: string; status: string } | null;
   },
+  now = new Date(),
 ) {
   const folded = fold(text);
   const person = (facts.team ?? []).find((row) => row.name && folded.includes(fold(row.name)));
-  if (person && /משמר|מתי/.test(folded)) {
-    return person.shifts.length
-      ? `המשמרות של ${person.name}:\n${person.shifts.join('\n')}`
+  const subject = person ? asTalks(person.shifts) : asTalks(facts.mine);
+  const picked = selectShifts(folded, subject, now);
+  if (picked) {
+    return sayShifts(picked, person?.name ?? null);
+  }
+  if (person && /משמר|מתי/u.test(folded)) {
+    return subject.length
+      ? `המשמרות של ${person.name}:\n${subject.map((shift) => shift.label).join('\n')}`
       : `אין ל${person.name} משמרות קרובות.`;
   }
-  const dayAnswer = answerAboutNamedDay(folded, facts.mine ?? []);
-  if (dayAnswer) {
-    return dayAnswer;
-  }
-  if (/המשמרות שלי|מה המשמרות שלי|איזה משמרות יש לי|מה יש לי/.test(folded)) {
-    return facts.mine?.length ? `המשמרות שלך:\n${facts.mine.join('\n')}` : 'אין לך משמרות קרובות.';
+  if (/המשמרות שלי|מה המשמרות שלי|איזה משמרות יש לי|מה יש לי/u.test(folded)) {
+    const mine = asTalks(facts.mine);
+    return mine.length
+      ? `המשמרות שלך:\n${mine.map((shift) => shift.label).join('\n')}`
+      : 'אין לך משמרות קרובות.';
   }
   if (facts.pending) {
     const { name, label, allowCover, allowSwap } = facts.pending;
@@ -411,8 +533,8 @@ export function answerDeskQuestion(
     }
     return `פתוח עכשיו: ${kind} ל${facts.search.label}.`;
   }
-  if (facts.mine?.length) {
-    return `המשמרות שלך:\n${facts.mine.join('\n')}`;
+  if (/משמר/u.test(folded)) {
+    return 'אפשר לשאול על היום, על מחר, על יום בשבוע, או על השבוע הבא.';
   }
   return 'אין בקשה פתוחה כרגע.';
 }

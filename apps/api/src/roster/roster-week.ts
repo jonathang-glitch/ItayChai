@@ -155,7 +155,6 @@ export async function askTeam() {
       userId: worker.userId,
       body: weekAskText({
         slots: open,
-        needed: schedule.needed,
         name: worker.displayName,
         shopName,
         link: pickUrl(tenantId, worker.id),

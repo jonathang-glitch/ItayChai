@@ -321,45 +321,26 @@ export function claimRefusal(input: {
   return null;
 }
 
-function placesLeft(left: number, needed: number) {
-  if (needed <= 1) {
-    return '';
-  }
-  return left === 1 ? ' · נשאר מקום אחד' : ` · נשארו ${left} מקומות`;
-}
-
 export function weekAskText(input: {
   slots: { slot: WeekSlot; left: number }[];
-  needed: number;
   name: string;
   shopName: string;
-  link?: string;
+  link: string;
 }) {
   const open = input.slots.filter((row) => row.left > 0);
   const first = open[0]?.slot;
   const last = open.at(-1)?.slot;
-  const week =
-    first && last ? ` לשבוע ${shortDate(first.startsAt)}–${shortDate(last.startsAt)}` : '';
-  if (!first) {
+  if (!first || !last) {
     return `היי ${input.name},\nהסידור של ${input.shopName} כבר מלא, ואין כרגע משמרות פנויות.`;
   }
-  const firstDay = DAY_NAMES[jerusalemWeekday(first.startsAt)] ?? '';
-  const example = first.part === 'משמרת' ? firstDay : `${firstDay} ${first.part}`;
-  const lines = open.map(
-    (row, index) => `${index + 1}. ${slotTalk(row.slot)}${placesLeft(row.left, input.needed)}`,
-  );
-  const parts = [`היי ${input.name},`, `הסידור של ${input.shopName}${week} פתוח לבחירה.`, ''];
-  if (input.link) {
-    parts.push(
-      'לבחירת משמרות לחצו על הקישור:',
-      input.link,
-      '',
-      'אפשר גם לענות כאן עם מספר המשמרת או היום, למשל 1 או ' + example + ':',
-    );
-  } else {
-    parts.push(`עונים כאן עם מספר המשמרת או היום, למשל 1 או ${example}:`);
-  }
-  return [...parts, ...lines].join('\n');
+  const week = `${shortDate(first.startsAt)}–${shortDate(last.startsAt)}`;
+  return [
+    `היי ${input.name},`,
+    `הסידור של ${input.shopName} לשבוע ${week} פתוח לבחירה.`,
+    '',
+    'לבחירת משמרות לחצו על הקישור:',
+    input.link,
+  ].join('\n');
 }
 
 export function slotLabel(slot: WeekSlot) {

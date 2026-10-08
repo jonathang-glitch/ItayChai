@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import { jerusalemDayKey, jerusalemWeekday, jerusalemWeekKey } from '@itay-chai/contracts';
 import {
   fitCoworker,
+  isDeskQuestion,
   isShortReply,
   matchShiftFromText,
   requestedArrangement,
@@ -21,12 +23,78 @@ import {
   prisma,
   shiftTalkWithDate,
 } from '@itay-chai/database';
-import { createCustomerRequest, answerMatch, answerOffer, cancelCustomerSearch } from '../../customer/customer.service';
+import {
+  createCustomerRequest,
+  answerMatch,
+  answerOffer,
+  cancelCustomerSearch,
+} from '../../customer/customer.service';
 
 type Routed = {
   ok: true;
   handled?: 'offer' | 'match' | 'cancel' | 'new_request' | 'unparsed' | 'need_pick' | 'roster';
 };
+
+const WEEKDAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'] as const;
+
+function addDay(day: string, days: number) {
+  const [year, month, date] = day.split('-').map(Number);
+  return jerusalemDayKey(new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, (date ?? 1) + days, 12)));
+}
+
+function weekdayOf(value: Date | string) {
+  return WEEKDAYS[jerusalemWeekday(value)] ?? '';
+}
+
+function clock(value: Date) {
+  return new Intl.DateTimeFormat('he-IL', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Jerusalem',
+  }).format(value);
+}
+
+function partOf(startsAt: Date): 'בוקר' | 'ערב' {
+  const hour = Number(
+    new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit',
+      hourCycle: 'h23',
+      timeZone: 'Asia/Jerusalem',
+    }).format(startsAt),
+  );
+  return hour < 15 ? 'בוקר' : 'ערב';
+}
+
+function describeShift(id: string, startsAt: Date, endsAt?: Date | null) {
+  const date = jerusalemDayKey(startsAt);
+  return {
+    id,
+    date,
+    weekday: weekdayOf(startsAt),
+    part: partOf(startsAt),
+    hours: endsAt ? `${clock(startsAt)}–${clock(endsAt)}` : clock(startsAt),
+    label: shiftTalkWithDate(startsAt),
+  };
+}
+
+function calendar(now: Date) {
+  const today = jerusalemDayKey(now);
+  const tomorrow = addDay(today, 1);
+  const thisSunday = jerusalemWeekKey(now);
+  const nextSunday = addDay(thisSunday, 7);
+  return {
+    timezone: 'Asia/Jerusalem' as const,
+    now: new Intl.DateTimeFormat('he-IL', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+      timeZone: 'Asia/Jerusalem',
+    }).format(now),
+    today: `${today} ${weekdayOf(`${today}T12:00:00Z`)}`,
+    tomorrow: `${tomorrow} ${weekdayOf(`${tomorrow}T12:00:00Z`)}`,
+    thisWeek: `${thisSunday} until ${addDay(nextSunday, -1)}`,
+    nextWeek: `${nextSunday} until ${addDay(nextSunday, 6)}`,
+  };
+}
 
 async function deskFacts(tenantId: string, userId: string) {
   const me = await prisma.employee.findFirst({
@@ -60,17 +128,34 @@ async function deskFacts(tenantId: string, userId: string) {
     take: 4,
     select: { status: true, kind: true, shift: { select: { startsAt: true } } },
   });
-  const labelOf = new Map(people.flatMap((person) => person.shifts.map((shift) => [shift.id, shiftTalkWithDate(shift.startsAt)])));
+  const labelOf = new Map(
+    people.flatMap((person) =>
+      person.shifts.map((shift) => [shift.id, shiftTalkWithDate(shift.startsAt)]),
+    ),
+  );
   return {
     team: people.map((person) => ({
       name: person.displayName,
-      shifts: person.shifts.map((shift) => shiftTalkWithDate(shift.startsAt)),
+      shifts: person.shifts.map((shift) => {
+        const described = describeShift(shift.id, shift.startsAt, shift.endsAt);
+        return {
+          date: described.date,
+          weekday: described.weekday,
+          part: described.part,
+          hours: described.hours,
+          label: described.label,
+        };
+      }),
     })),
     options: mine.map((shift) => ({
       shiftId: shift.id,
       label: shiftTalkWithDate(shift.startsAt),
       who: people.map((person) => {
-        const fit = fitCoworker({ name: person.displayName, shifts: person.shifts }, shift.startsAt, days);
+        const fit = fitCoworker(
+          { name: person.displayName, shifts: person.shifts },
+          shift.startsAt,
+          days,
+        );
         return {
           name: fit.name,
           canCover: fit.canCover,
@@ -108,10 +193,10 @@ export async function applyGeminiIntent(input: {
     return null;
   }
   const mine = await listMyShifts(input.userId);
-  const shifts = mine.map((shift) => ({
-    id: shift.id,
-    label: shift.startsAt ? shiftTalkWithDate(new Date(shift.startsAt)) : shift.label,
-  }));
+  const now = new Date();
+  const shifts = mine.map((shift) =>
+    describeShift(shift.id, new Date(shift.startsAt), shift.endsAt ? new Date(shift.endsAt) : null),
+  );
   const facts = await deskFacts(input.tenantId, input.userId);
   const recentRows = await prisma.message.findMany({
     where: { tenantId: input.tenantId, session: { customerUserId: input.userId } },
@@ -124,28 +209,34 @@ export async function applyGeminiIntent(input: {
     text: row.body.slice(0, 240),
   }));
   const ask = await getDeskAsk(input.tenantId, input.userId);
-  const decision = await classifyShiftTextWithGemini({
-    text: input.text,
-    shifts,
-    team: facts.team,
-    options: facts.options,
-    searches: facts.searches,
-    finish: facts.finish,
-    waitingConfirm: Boolean(input.matchSessionId),
-    awaitingConfirmSwap: ask === 'confirm_swap',
-    awaitingAsk: ask,
-    openSearch: Boolean(input.openSearchId),
-    recent,
-    ...(input.pending
-      ? {
-          pendingOffer: {
-            allowCover: input.pending.allowCover,
-            allowSwap: input.pending.allowSwap,
-            swapShiftIds: (input.pending.swapChoices ?? []).map((shift) => shift.id),
-          },
-        }
-      : {}),
-  });
+  const question = isDeskQuestion(input.text);
+  const decision = await classifyShiftTextWithGemini(
+    question
+      ? { text: input.text, calendar: calendar(now), shifts, team: facts.team }
+      : {
+          text: input.text,
+          calendar: calendar(now),
+          shifts,
+          team: facts.team,
+          options: facts.options,
+          searches: facts.searches,
+          finish: facts.finish,
+          waitingConfirm: Boolean(input.matchSessionId),
+          awaitingConfirmSwap: ask === 'confirm_swap',
+          awaitingAsk: ask,
+          openSearch: Boolean(input.openSearchId),
+          recent,
+          ...(input.pending
+            ? {
+                pendingOffer: {
+                  allowCover: input.pending.allowCover,
+                  allowSwap: input.pending.allowSwap,
+                  swapShiftIds: (input.pending.swapChoices ?? []).map((shift) => shift.id),
+                },
+              }
+            : {}),
+        },
+  );
   if (!decision) {
     return null;
   }
@@ -162,6 +253,7 @@ export async function applyGeminiIntent(input: {
     unspecified: arrangement == null && !/כיסוי|לכסות|החלפה|להחליף/u.test(input.text),
   });
   const reply = action === decision.action ? decision.reply : undefined;
+
   const openMatch = input.matchSessionId
     ? await prisma.shiftSwapRequest.findFirst({
         where: { sessionId: input.matchSessionId, status: { in: ['SEEKING', 'MATCH_PROPOSED'] } },
@@ -171,7 +263,7 @@ export async function applyGeminiIntent(input: {
   const shiftId =
     decision.shiftId ??
     (action === 'start_cover' || action === 'start_swap' || action === 'start_either'
-      ? openMatch?.shiftId ?? undefined
+      ? (openMatch?.shiftId ?? undefined)
       : undefined) ??
     soleShiftId;
   const startAction =
@@ -192,6 +284,14 @@ export async function applyGeminiIntent(input: {
       aggregateId: randomUUID(),
       deskAsk,
     });
+
+  if (isDeskQuestion(input.text)) {
+    if (reply) {
+      await send(reply);
+      return { ok: true, handled: 'unparsed' };
+    }
+    return null;
+  }
 
   if (action === 'show_roster') {
     const upcoming = mine.filter((shift) => new Date(shift.endsAt).getTime() > Date.now());
@@ -235,14 +335,22 @@ export async function applyGeminiIntent(input: {
 
   const kind =
     startAction === 'start_cover' ? 'COVER' : startAction === 'start_either' ? 'EITHER' : 'SWAP';
-  if (startAction === 'start_cover' || startAction === 'start_swap' || startAction === 'start_either') {
+  if (
+    startAction === 'start_cover' ||
+    startAction === 'start_swap' ||
+    startAction === 'start_either'
+  ) {
     if (!shiftId) {
       await send(
         reply ||
           (startAction === 'start_swap'
             ? pickSwapAgain(shifts.map((shift) => shift.label))
             : pickWhichShift(shifts.map((shift) => shift.label))),
-        startAction === 'start_swap' ? 'pick_swap' : startAction === 'start_cover' ? 'pick_cover' : 'pick_either',
+        startAction === 'start_swap'
+          ? 'pick_swap'
+          : startAction === 'start_cover'
+            ? 'pick_cover'
+            : 'pick_either',
       );
       return { ok: true, handled: 'need_pick' };
     }

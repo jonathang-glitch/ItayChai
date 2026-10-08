@@ -30,7 +30,12 @@ import {
   workerWelcome,
 } from '@itay-chai/database';
 import { createWhatsAppAdapter } from '@itay-chai/integrations';
-import { createCustomerRequest, answerMatch, answerOffer, cancelCustomerSearch } from '../../customer/customer.service';
+import {
+  createCustomerRequest,
+  answerMatch,
+  answerOffer,
+  cancelCustomerSearch,
+} from '../../customer/customer.service';
 import { claimWeekReply } from '../../roster/roster-week';
 import { applyGeminiIntent } from './apply-gemini';
 import { choosePendingOffer } from './pick-pending-offer';
@@ -148,7 +153,9 @@ async function routeIdentified(
   }
 
   const intent = classifyWhatsAppText(inbound.text);
-  const offers = (await listIncomingOffers(identity.userId)).filter((row) => row.status === 'PENDING');
+  const offers = (await listIncomingOffers(identity.userId)).filter(
+    (row) => row.status === 'PENDING',
+  );
   const choice = choosePendingOffer(offers, spoken, intent);
   const pending = choice.offer;
   const matchSession = await prisma.shiftSwapRequest.findFirst({
@@ -169,7 +176,10 @@ async function routeIdentified(
   });
 
   const namedShift = pending
-    ? matchShiftFromText(inbound.text, [...(pending.swapChoices ?? []), ...(pending.weekShifts ?? [])])
+    ? matchShiftFromText(inbound.text, [
+        ...(pending.swapChoices ?? []),
+        ...(pending.weekShifts ?? []),
+      ])
     : undefined;
   const matchReply = matchSession ? classifyMatchReply(inbound.text) : 'unknown';
   const agrees = matchReply === 'accept' || intent === 'accept';
@@ -201,16 +211,22 @@ async function routeIdentified(
   if (isDeskQuestion(inbound.text)) {
     const mine = await listMyShifts(identity.userId);
     const upcoming = mine.filter((shift) => new Date(shift.endsAt).getTime() > Date.now());
-    const mineLabels = (upcoming.length ? upcoming : mine).map((shift) =>
-      shift.startsAt ? shiftTalkWithDate(new Date(shift.startsAt)) : shift.label,
-    );
+    const listed = upcoming.length ? upcoming : mine;
+    const mineShifts = listed.map((shift) => ({
+      label: shift.startsAt ? shiftTalkWithDate(new Date(shift.startsAt)) : shift.label,
+      ...(shift.startsAt ? { startsAt: new Date(shift.startsAt).toISOString() } : {}),
+    }));
     const me = await prisma.employee.findFirst({
       where: { tenantId: identity.tenantId, userId: identity.userId },
       select: { id: true, businessUnitId: true },
     });
     const people = me
       ? await prisma.employee.findMany({
-          where: { tenantId: identity.tenantId, businessUnitId: me.businessUnitId, id: { not: me.id } },
+          where: {
+            tenantId: identity.tenantId,
+            businessUnitId: me.businessUnitId,
+            id: { not: me.id },
+          },
           select: {
             displayName: true,
             shifts: {
@@ -223,7 +239,11 @@ async function routeIdentified(
       : [];
     const search = me
       ? await prisma.shiftSwapRequest.findFirst({
-          where: { tenantId: identity.tenantId, employeeId: me.id, status: { in: ['SEEKING', 'MATCH_PROPOSED', 'UNFILLED'] } },
+          where: {
+            tenantId: identity.tenantId,
+            employeeId: me.id,
+            status: { in: ['SEEKING', 'MATCH_PROPOSED', 'UNFILLED'] },
+          },
           orderBy: { createdAt: 'desc' },
           select: { kind: true, status: true, shift: { select: { startsAt: true } } },
         })
@@ -244,13 +264,20 @@ async function routeIdentified(
                 allowSwap: pending.allowSwap,
               }
             : null,
-        mine: mineLabels,
+        mine: mineShifts,
         team: people.map((person) => ({
           name: person.displayName,
-          shifts: person.shifts.map((shift) => shiftTalkWithDate(shift.startsAt)),
+          shifts: person.shifts.map((shift) => ({
+            label: shiftTalkWithDate(shift.startsAt),
+            startsAt: new Date(shift.startsAt).toISOString(),
+          })),
         })),
         search: search?.shift
-          ? { kind: search.kind, label: shiftTalkWithDate(search.shift.startsAt), status: search.status }
+          ? {
+              kind: search.kind,
+              label: shiftTalkWithDate(search.shift.startsAt),
+              status: search.status,
+            }
           : null,
       }),
       aggregateType: 'WhatsAppInbound',
@@ -282,7 +309,10 @@ async function routeIdentified(
     await recordSpeaker(identity.tenantId, identity.userId, spoken);
     return { ok: true, handled: 'offer' };
   }
-  if (pending && (intent === 'yes' || intent === 'cover' || intent === 'swap' || intent === 'either')) {
+  if (
+    pending &&
+    (intent === 'yes' || intent === 'cover' || intent === 'swap' || intent === 'either')
+  ) {
     const onlyCover = pending.allowCover && !pending.allowSwap;
     const both = pending.allowCover && pending.allowSwap;
     if (intent === 'cover' || (intent === 'yes' && onlyCover)) {
@@ -341,7 +371,10 @@ async function routeIdentified(
     return { ok: true, handled: 'unparsed' };
   }
   if (matchSession && ask === 'confirm_swap' && (agrees || refuses) && !namedShift) {
-    await answerMatch(matchSession.sessionId, refuses && matchReply !== 'accept' ? 'decline' : 'accept');
+    await answerMatch(
+      matchSession.sessionId,
+      refuses && matchReply !== 'accept' ? 'decline' : 'accept',
+    );
     await recordInbound(identity.tenantId, matchSession.sessionId, spoken);
     if (matchReply === 'decline' || intent === 'help') {
       await enqueueWhatsAppSendNow({
@@ -386,7 +419,8 @@ async function routeIdentified(
     });
     return { ok: true, handled: 'roster' };
   }
-  const wantsNew = intent === 'cover' || intent === 'swap' || intent === 'either' || intent === 'new';
+  const wantsNew =
+    intent === 'cover' || intent === 'swap' || intent === 'either' || intent === 'new';
   const upcomingMine = mine.filter((shift) => new Date(shift.endsAt).getTime() > Date.now());
   const namedMine =
     matchShiftFromText(inbound.text, mine) ??
@@ -409,7 +443,13 @@ async function routeIdentified(
   }
   const chosen = namedMine ? mine.find((shift) => shift.id === namedMine) : undefined;
   const pickedKind =
-    ask === 'pick_cover' ? 'COVER' : ask === 'pick_swap' ? 'SWAP' : ask === 'pick_either' ? 'EITHER' : undefined;
+    ask === 'pick_cover'
+      ? 'COVER'
+      : ask === 'pick_swap'
+        ? 'SWAP'
+        : ask === 'pick_either'
+          ? 'EITHER'
+          : undefined;
   if (chosen && (wantsNew || pickedKind)) {
     await createCustomerRequest({
       shiftId: chosen.id,
@@ -466,7 +506,10 @@ export async function handleWhatsAppInbound(payload: unknown): Promise<InboundRe
   }
   if (!identity.verifiedAt) {
     await withTenantDb(identity.tenantId, (tx) =>
-      tx.stakeholderIdentity.update({ where: { id: identity.id }, data: { verifiedAt: new Date() } }),
+      tx.stakeholderIdentity.update({
+        where: { id: identity.id },
+        data: { verifiedAt: new Date() },
+      }),
     );
   }
   await prisma.auditEntry.create({

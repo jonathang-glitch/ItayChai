@@ -18,6 +18,8 @@ export const GEMINI_SHIFT_ACTIONS = [
 
 export type GeminiShiftAction = (typeof GEMINI_SHIFT_ACTIONS)[number];
 
+const GEMINI_BUDGET_MS = 8_000;
+
 export type GeminiShiftDecision = {
   action: GeminiShiftAction;
   shiftId?: string;
@@ -26,12 +28,36 @@ export type GeminiShiftDecision = {
 
 export type GeminiShiftContext = {
   text: string;
-  shifts: { id: string; label: string }[];
-  team?: { name: string; shifts: string[] }[];
+  calendar?: {
+    timezone: 'Asia/Jerusalem';
+    now: string;
+    today: string;
+    tomorrow: string;
+    thisWeek: string;
+    nextWeek: string;
+  };
+  shifts: {
+    id: string;
+    label: string;
+    date?: string;
+    weekday?: string;
+    part?: 'בוקר' | 'ערב';
+    hours?: string;
+  }[];
+  team?: {
+    name: string;
+    shifts: { date: string; weekday: string; part: 'בוקר' | 'ערב'; hours: string; label: string }[];
+  }[];
   options?: {
     shiftId: string;
     label: string;
-    who: { name: string; canCover: boolean; canSwap: boolean; swap: string[]; block: string | null }[];
+    who: {
+      name: string;
+      canCover: boolean;
+      canSwap: boolean;
+      swap: string[];
+      block: string | null;
+    }[];
   }[];
   searches?: { status: string; kind: string; shift: string }[];
   finish?: 'live_auto' | 'ask_coworker';
@@ -75,7 +101,10 @@ export function geminiShiftConfigured() {
   return Boolean(envValue('GEMINI_API_KEY'));
 }
 
-export function parseGeminiShiftDecision(raw: string, allowedShiftIds: string[]): GeminiShiftDecision | null {
+export function parseGeminiShiftDecision(
+  raw: string,
+  allowedShiftIds: string[],
+): GeminiShiftDecision | null {
   const start = raw.indexOf('{');
   const end = raw.lastIndexOf('}');
   if (start < 0 || end <= start) {
@@ -95,7 +124,8 @@ export function parseGeminiShiftDecision(raw: string, allowedShiftIds: string[])
     return null;
   }
   const allowed = new Set(allowedShiftIds);
-  const shiftId = typeof row.shiftId === 'string' && allowed.has(row.shiftId) ? row.shiftId : undefined;
+  const shiftId =
+    typeof row.shiftId === 'string' && allowed.has(row.shiftId) ? row.shiftId : undefined;
   const reply = typeof row.reply === 'string' ? row.reply.trim().slice(0, 400) : undefined;
   return {
     action: row.action as GeminiShiftAction,
@@ -111,7 +141,9 @@ function promptFor(context: GeminiShiftContext) {
     `action must be one of: ${GEMINI_SHIFT_ACTIONS.join(', ')}`,
     'shiftId must be one of the provided shift ids, or omitted.',
     'reply is the Hebrew they will read, 1-3 short sentences. Use only Context. Never invent a person, a shift, or a reason.',
-    'Any question, including one with ?, למה, מה, מי, איזה, איך, or האם, is clarify. Reply answers from pendingOffer, searches, team, and options. A question never starts a cover or a swap and never asks which shift to pick.',
+    'calendar.today is היום. calendar.tomorrow is מחר. Dates from calendar.thisWeek are השבוע. Dates from calendar.nextWeek are שבוע הבא.',
+    'Every shift has date, weekday, part (בוקר or ערב), and hours. Answer a time question from those fields only. If that day or week has no shift, say so. Do not mention other days.',
+    'A question (including ?, למה, מה, מי, איזה, איך, האם) is action clarify. Put the Hebrew answer in reply. Do not start a cover or a swap from a question.',
     'options is who can take each of the speaker’s shifts. canCover false with busy_that_day means that person already works that day. canSwap false with no_swap_shift means they are free that day but have no shift the speaker can take: it must fall on a day the speaker is free, this week or next, and end after the speaker’s shift starts.',
     'finish ask_coworker: the coworker is asked and nothing is committed until he answers. A swap still commits only when the requester sends accept_match.',
     'Do not answer a question with a menu.',
@@ -142,17 +174,27 @@ export async function classifyShiftTextWithGemini(
   if (!apiKey) {
     return null;
   }
-  const preferred = envValue('GEMINI_MODEL') || 'gemini-3.6-flash';
-  const models = [...new Set([preferred, 'gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'])];
+  const question = !context.options && !context.pendingOffer;
+  const preferred = envValue('GEMINI_MODEL') || 'gemini-3.5-flash';
+  const models = question
+    ? ['gemini-3.5-flash', 'gemini-flash-latest']
+    : [...new Set([preferred, 'gemini-3.5-flash', 'gemini-flash-latest'])];
   const allowed = context.shifts.map((shift) => shift.id);
   const body = JSON.stringify({
     contents: [{ role: 'user', parts: [{ text: promptFor(context) }] }],
     generationConfig: { temperature: 0.1, responseMimeType: 'application/json' },
   });
+  const deadline = Date.now() + (question ? 12_000 : GEMINI_BUDGET_MS);
+  const attemptMs = question ? 7_000 : 4_000;
   try {
     for (const model of models) {
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        const response = await fetch(
+      const remaining = deadline - Date.now();
+      if (remaining < 800) {
+        break;
+      }
+      let response: Response;
+      try {
+        response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
           {
             method: 'POST',
@@ -161,28 +203,42 @@ export async function classifyShiftTextWithGemini(
               'x-goog-api-key': apiKey,
             },
             body,
+            signal: AbortSignal.timeout(Math.min(attemptMs, remaining)),
           },
         );
-        if (response.status === 503 || response.status === 429) {
-          console.warn('gemini_classify_http', response.status, model, 'retry');
-          await new Promise((resolve) => setTimeout(resolve, 600));
-          continue;
-        }
-        if (!response.ok) {
-          const err = (await response.json().catch(() => ({}))) as { error?: { status?: string; code?: number } };
-          console.warn('gemini_classify_http', response.status, model, err.error?.status ?? err.error?.code ?? '');
-          break;
-        }
-        const json = (await response.json()) as {
-          candidates?: { content?: { parts?: { text?: string }[] } }[];
+      } catch (error) {
+        console.warn(
+          'gemini_classify_failed',
+          model,
+          error instanceof Error ? error.message : 'error',
+        );
+        continue;
+      }
+      if (response.status === 503 || response.status === 429) {
+        console.warn('gemini_classify_http', response.status, model, 'next');
+        continue;
+      }
+      if (!response.ok) {
+        const err = (await response.json().catch(() => ({}))) as {
+          error?: { status?: string; code?: number };
         };
-        const text = json.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('') ?? '';
-        const parsed = parseGeminiShiftDecision(text, allowed);
-        if (parsed) {
-          console.info('gemini_classify_ok', model, parsed.action);
-          return parsed;
-        }
-        break;
+        console.warn(
+          'gemini_classify_http',
+          response.status,
+          model,
+          err.error?.status ?? err.error?.code ?? '',
+        );
+        continue;
+      }
+      const json = (await response.json()) as {
+        candidates?: { content?: { parts?: { text?: string }[] } }[];
+      };
+      const text =
+        json.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('') ?? '';
+      const parsed = parseGeminiShiftDecision(text, allowed);
+      if (parsed) {
+        console.info('gemini_classify_ok', model, parsed.action);
+        return parsed;
       }
     }
   } catch (error) {

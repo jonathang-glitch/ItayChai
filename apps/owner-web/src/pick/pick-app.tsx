@@ -150,24 +150,30 @@ export function PickApp({ token }: { token: string }) {
 
       <footer className="pk-bar">
         {hint ? <p className="pk-hint">{hint}</p> : null}
+        {saved && !dirty && !hint ? (
+          <p className="pk-saved" role="status">
+            <b>✓</b>
+            <span>
+              <strong>נשמר!</strong>{' '}
+              {chosen.size ? `${count(chosen.size)} נשמרו בסידור.` : 'הסרת את כל המשמרות.'} אפשר
+              לחזור לקישור ולשנות בכל רגע.
+            </span>
+          </p>
+        ) : null}
         <div className="pk-bar-row">
           <div>
             <strong>{chosen.size ? `בחרת ${count(chosen.size)}` : 'עוד לא בחרת'}</strong>
-            <span className={refusal ? 'pk-warn' : ''}>
-              {refusal ??
-                (saved && !dirty
-                  ? 'נשמר. אפשר לחזור לקישור ולשנות.'
-                  : dirty
-                    ? 'עוד לא נשמר'
-                    : 'הכל שמור')}
+            <span className={refusal ? 'pk-warn' : dirty ? 'pk-pending' : 'pk-ok'}>
+              {refusal ?? (dirty ? 'יש שינויים שעוד לא נשמרו' : 'המשמרות שלך שמורות')}
             </span>
           </div>
           <button
             type="button"
+            className={!dirty && !busy ? 'pk-done' : ''}
             disabled={busy || !dirty || Boolean(refusal)}
             onClick={() => void save()}
           >
-            {busy ? 'שומרים…' : 'שמירה'}
+            {busy ? 'שומרים…' : dirty ? 'שמירה' : 'נשמר ✓'}
           </button>
         </div>
       </footer>

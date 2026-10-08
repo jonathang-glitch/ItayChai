@@ -207,6 +207,63 @@
   color: var(--warn);
 }
 
+.pk-bar-row .pk-pending {
+  color: var(--warm);
+  font-weight: 500;
+}
+
+.pk-bar-row .pk-ok {
+  color: var(--brand);
+  font-weight: 500;
+}
+
+.pk-bar button.pk-done:disabled {
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+}
+
+.pk-saved {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 528px;
+  margin: 0 auto 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.4;
+  animation: pk-pop 0.25s ease-out;
+}
+
+.pk-saved b {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--brand);
+  font-size: 16px;
+}
+
+.pk-saved strong {
+  font-size: 15px;
+}
+
+@keyframes pk-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .pk-bar button {
   flex: none;
   min-width: 112px;
