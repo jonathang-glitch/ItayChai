@@ -15,14 +15,16 @@ import type { Prisma } from '@prisma/client';
 type Tx = Prisma.TransactionClient;
 
 const PLACEHOLDER_WHATSAPP = /^\+97250000000\d$/;
-const LOCAL_DESK_USER_ID = '00000000-0000-4000-8000-000000000017';
+const LOCAL_DESK_USER_IDS = new Set([
+  '00000000-0000-4000-8000-000000000011',
+]);
 
 function isLiveTwilio() {
   return (process.env.WHATSAPP_PROVIDER ?? 'mock') === 'twilio';
 }
 
 export function isLocalDeskUser(userId: string) {
-  return isLiveTwilio() && userId === LOCAL_DESK_USER_ID;
+  return isLiveTwilio() && LOCAL_DESK_USER_IDS.has(userId);
 }
 
 function siteWhatsAppText(body: string) {
@@ -101,7 +103,7 @@ export async function enqueueWhatsAppSend(
       data: { deskAsk: input.deskAsk },
     });
   }
-  if (isLiveTwilio() && input.userId === LOCAL_DESK_USER_ID) {
+  if (isLocalDeskUser(input.userId)) {
     await writeLocalDesk(tx, input.tenantId, input.userId, siteWhatsAppText(input.body));
     return null;
   }

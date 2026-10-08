@@ -75,29 +75,53 @@ function message(from: string, text: string) {
   });
 }
 
-test('owner adds a worker, the password works, and the phone is stored', async () => {
+test('owner registers a worker by name and phone, with no website login', async () => {
   const shop = await openShop(Date.now() + 1);
-  const email = `worker-${Date.now()}@example.com`;
-  const password = 'worker-password';
   const phone = freshPhone();
   const created = await request(app.getHttpServer())
     .post('/api/v1/roster/workers')
     .set(auth(shop.token, shop.tenantId))
-    .send({ name: 'דנה', email, password, whatsapp: phone });
+    .send({ name: 'דנה', whatsapp: phone });
   assert.equal(created.status, 201, created.text);
-  assert.equal(created.body.password, password);
-  const login = await request(app.getHttpServer()).post('/api/v1/auth/login').send({ email, password });
-  assert.equal(login.status, 200, login.text);
+  assert.equal(created.body.name, 'דנה');
+  assert.equal(created.body.phone, phone);
+  assert.equal(created.body.password, undefined);
+  const identity = await prisma.stakeholderIdentity.findFirst({
+    where: { tenantId: shop.tenantId, channel: WHATSAPP_PROVIDER, externalId: phone },
+  });
+  assert.ok(identity?.userId);
+  const user = await prisma.user.findUnique({ where: { id: identity.userId } });
+  assert.equal(user?.email, null);
+  assert.equal(user?.passwordHash, null);
+  const membership = await prisma.tenantMembership.findFirst({ where: { userId: identity.userId } });
+  assert.equal(membership, null);
   const listed = await request(app.getHttpServer())
     .get('/api/v1/roster/workers')
     .set(auth(shop.token, shop.tenantId));
   assert.equal(listed.status, 200, listed.text);
   assert.equal(listed.body.workers[0].phone, phone);
-  assert.equal(listed.body.workers[0].email, email);
+  assert.equal(listed.body.workers[0].name, 'דנה');
+  assert.equal(listed.body.workers[0].connected, false);
+  const joined = await message(phone, 'join solar-well');
+  assert.equal(joined.status, 200, joined.text);
+  const welcome = await prisma.domainEvent.findFirst({
+    where: { tenantId: shop.tenantId, aggregateType: 'WorkerWelcome' },
+  });
+  assert.match(String((welcome?.payload as { text?: string } | null)?.text), /^היי דנה, התחברת/);
+  const relisted = await request(app.getHttpServer())
+    .get('/api/v1/roster/workers')
+    .set(auth(shop.token, shop.tenantId));
+  assert.equal(relisted.body.workers[0].connected, true);
+  const renamed = await request(app.getHttpServer())
+    .patch(`/api/v1/roster/workers/${created.body.id}`)
+    .set(auth(shop.token, shop.tenantId))
+    .send({ name: 'דנה כהן' });
+  assert.equal(renamed.status, 200, renamed.text);
+  assert.equal(renamed.body.name, 'דנה כהן');
   const reused = await request(app.getHttpServer())
     .post('/api/v1/roster/workers')
     .set(auth(shop.token, shop.tenantId))
-    .send({ name: 'אחר', email: `other-${Date.now()}@example.com`, password, whatsapp: phone });
+    .send({ name: 'אחר', whatsapp: phone });
   assert.equal(reused.status, 409, reused.text);
 });
 
@@ -107,11 +131,11 @@ test('delete is refused while a search is open and succeeds after it is cancelle
   const requester = await request(app.getHttpServer())
     .post('/api/v1/roster/workers')
     .set(auth(shop.token, shop.tenantId))
-    .send({ name: 'דנה', email: `dana-${Date.now()}@example.com`, password: 'worker-password', whatsapp: danaPhone });
+    .send({ name: 'דנה', whatsapp: danaPhone });
   const coworker = await request(app.getHttpServer())
     .post('/api/v1/roster/workers')
     .set(auth(shop.token, shop.tenantId))
-    .send({ name: 'יוסי', email: `yossi-${Date.now()}@example.com`, password: 'worker-password', whatsapp: freshPhone() });
+    .send({ name: 'יוסי', whatsapp: freshPhone() });
   assert.equal(requester.status, 201, requester.text);
   assert.equal(coworker.status, 201, coworker.text);
   const shift = await request(app.getHttpServer())
@@ -144,7 +168,7 @@ test('creating two shifts on the same day for one person fails', async () => {
   const worker = await request(app.getHttpServer())
     .post('/api/v1/roster/workers')
     .set(auth(shop.token, shop.tenantId))
-    .send({ name: 'דנה', email: `sameday-${Date.now()}@example.com`, password: 'worker-password', whatsapp: freshPhone() });
+    .send({ name: 'דנה', whatsapp: freshPhone() });
   assert.equal(worker.status, 201, worker.text);
   const first = await request(app.getHttpServer())
     .post('/api/v1/roster/shifts')
@@ -172,7 +196,7 @@ test('a reply that names one person updates only that offer', async () => {
     const created = await request(app.getHttpServer())
       .post('/api/v1/roster/workers')
       .set(auth(shop.token, shop.tenantId))
-      .send({ name, email: `${key}-${Date.now()}@example.com`, password: 'worker-password', whatsapp: phone });
+      .send({ name, whatsapp: phone });
     assert.equal(created.status, 201, created.text);
     return created.body as { id: string };
   }

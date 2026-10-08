@@ -1,5 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
-import { DEV_TENANT_ID, jerusalemDayKey, shiftLabelFromStart } from '@itay-chai/contracts';
+import { DEV_TENANT_ID, jerusalemDayKey, jerusalemWeekday, shiftLabelFromStart } from '@itay-chai/contracts';
 
 const ORI_USER_ID = '00000000-0000-4000-8000-000000000015';
 const DANA_USER_ID = '00000000-0000-4000-8000-000000000016';
@@ -71,15 +71,30 @@ export const SHIRA_SEED_SHIFTS = [
   slot('00000000-0000-4000-8000-000000000074', '2026-09-09T08:00:00+03:00', '2026-09-09T14:00:00+03:00'),
 ] as const;
 
+function liveSlot(id: string, dayFromSunday: number, startHour: number, endHour: number) {
+  const key = jerusalemDayKey(new Date());
+  const [year, month, day] = key.split('-').map(Number);
+  const sunday = Date.UTC(year ?? 0, (month ?? 1) - 1, (day ?? 1) - jerusalemWeekday(new Date()) + dayFromSunday);
+  const date = new Date(sunday);
+  const stamp = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+  return slot(
+    id,
+    `${stamp}T${String(startHour).padStart(2, '0')}:00:00+03:00`,
+    `${stamp}T${String(endHour).padStart(2, '0')}:00:00+03:00`,
+  );
+}
+
 export const LIVE_DANA_SHIFTS = [
-  slot('00000000-0000-4000-8000-0000000000a1', '2026-09-24T16:00:00+03:00', '2026-09-24T22:00:00+03:00'),
-  slot('00000000-0000-4000-8000-0000000000a2', '2026-09-27T16:00:00+03:00', '2026-09-27T22:00:00+03:00'),
-] as const;
+  liveSlot('00000000-0000-4000-8000-0000000000a1', 4, 16, 22),
+  liveSlot('00000000-0000-4000-8000-0000000000a2', 7, 16, 22),
+  liveSlot('00000000-0000-4000-8000-0000000000a3', 11, 16, 22),
+];
 
 export const LIVE_YOSSI_SHIFTS = [
-  slot('00000000-0000-4000-8000-0000000000b1', '2026-09-25T08:00:00+03:00', '2026-09-25T14:00:00+03:00'),
-  slot('00000000-0000-4000-8000-0000000000b2', '2026-09-26T16:00:00+03:00', '2026-09-26T22:00:00+03:00'),
-] as const;
+  liveSlot('00000000-0000-4000-8000-0000000000b1', 5, 8, 14),
+  liveSlot('00000000-0000-4000-8000-0000000000b2', 6, 16, 22),
+  liveSlot('00000000-0000-4000-8000-0000000000b3', 12, 8, 14),
+];
 
 const PEOPLE = [
   { id: ORI_EMPLOYEE_ID, userId: ORI_USER_ID, displayName: 'אורי', shifts: SEED_SHIFTS },

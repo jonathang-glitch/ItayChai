@@ -34,6 +34,7 @@ export {
 export {
   didNotUnderstand,
   howToStart,
+  workerWelcome,
   myShifts,
   pickSwapAgain,
   pickWhichShift,

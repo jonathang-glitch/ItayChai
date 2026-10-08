@@ -168,6 +168,9 @@ importers:
 
   apps/owner-web:
     dependencies:
+      '@itay-chai/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@itay-chai/ui':
         specifier: workspace:*
         version: link:../../packages/ui

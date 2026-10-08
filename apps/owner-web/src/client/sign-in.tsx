@@ -1,16 +1,24 @@
 import { useState, type FormEvent } from 'react';
 import { login, signup } from './api';
-import { COPY, PEOPLE } from './copy';
+import { COPY } from './copy';
 import type { AuthSession } from './types';
 
 type Props = {
   onSignedIn: (session: AuthSession) => void;
 };
 
-type Mode = 'people' | 'login' | 'signup';
+type Mode = 'login' | 'signup';
 
-function failureText(status: number, fallback: string) {
-  if (status === 409) {
+function failureText(status: number, body: unknown, fallback: string) {
+  const message =
+    body && typeof body === 'object' && 'message' in body && typeof body.message === 'string' ? body.message : '';
+  if (message === 'Phone already used') {
+    return COPY.phoneUsed;
+  }
+  if (message === 'Enter a phone number with country code') {
+    return COPY.badPhone;
+  }
+  if (message === 'Email already registered' || status === 409) {
     return COPY.emailTaken;
   }
   if (status >= 500 || status === 408) {
@@ -20,186 +28,135 @@ function failureText(status: number, fallback: string) {
 }
 
 export function SignIn({ onSignedIn }: Props) {
-  const [mode, setMode] = useState<Mode>('people');
-  const [busy, setBusy] = useState<string | null>(null);
+  const [mode, setMode] = useState<Mode>('login');
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [shopName, setShopName] = useState('');
-  const [ownerName, setOwnerName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
 
-  async function enter(person: (typeof PEOPLE)[number]) {
-    setBusy(person.key);
+  function switchMode(next: Mode) {
+    setMode(next);
     setError(null);
-    try {
-      const result = await login(person.email, person.password);
-      if (result.status !== 200 || !result.body.accessToken) {
-        throw new Error(failureText(result.status, COPY.badLogin));
-      }
-      onSignedIn(result.body);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : COPY.badLogin);
-    } finally {
-      setBusy(null);
-    }
   }
 
   async function submitLogin(event: FormEvent) {
     event.preventDefault();
-    setBusy('login');
+    setBusy(true);
     setError(null);
     try {
       const result = await login(email.trim(), password);
       if (result.status !== 200 || !result.body.accessToken) {
-        throw new Error(failureText(result.status, COPY.badLogin));
+        throw new Error(failureText(result.status, result.body, COPY.badLogin));
       }
       onSignedIn(result.body);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : COPY.badLogin);
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   }
 
   async function submitSignup(event: FormEvent) {
     event.preventDefault();
-    setBusy('signup');
+    setBusy(true);
     setError(null);
     try {
       const result = await signup({
         shopName: shopName.trim(),
-        ownerName: ownerName.trim(),
         email: email.trim(),
         password,
         whatsapp: whatsapp.trim(),
       });
       if (result.status !== 200 || !result.body.accessToken) {
-        throw new Error(failureText(result.status, COPY.badLogin));
+        throw new Error(failureText(result.status, result.body, COPY.badLogin));
       }
       onSignedIn(result.body);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : COPY.badLogin);
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   }
 
   return (
     <div className="signin">
-      <div className="signin-glow" />
-      <section className="signin-story">
-        <p className="brand-mark">
-          <span>חי</span>
-          {COPY.brand}
-        </p>
-        <p className="kicker">{COPY.signInKicker}</p>
+      <div className="signin-panel">
         <h1>{COPY.signInTitle}</h1>
-        <p className="lede">{COPY.signInLede}</p>
-      </section>
+        <p className="signin-lede">{COPY.signInLede}</p>
 
-      <section className="signin-card">
-        {mode === 'people' ? (
-          <>
-            <p className="card-kicker">{COPY.continueAs}</p>
-            <div className="people">
-              {PEOPLE.map((person) => (
-                <button key={person.key} type="button" disabled={Boolean(busy)} onClick={() => void enter(person)}>
-                  <span className={`avatar ${person.avatar}`}>{person.name.slice(0, 1)}</span>
-                  <span>
-                    <strong>{person.name}</strong>
-                    <em>
-                      {person.role} · {person.place}
-                    </em>
-                  </span>
-                  <b>{busy === person.key ? COPY.entering : 'כניסה'}</b>
-                </button>
-              ))}
-            </div>
-            <div className="signin-links">
-              <button type="button" className="text-btn" onClick={() => setMode('login')}>
-                {COPY.emailEntry}
-              </button>
-              <button type="button" className="text-btn" onClick={() => setMode('signup')}>
-                {COPY.openShop}
-              </button>
-            </div>
-          </>
-        ) : null}
-
-        {mode === 'login' ? (
-          <form onSubmit={(event) => void submitLogin(event)}>
-            <p className="card-kicker">{COPY.emailEntry}</p>
-            <label>
-              {COPY.email}
-              <input type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required />
-            </label>
-            <label>
-              {COPY.password}
-              <input
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-              />
-            </label>
-            <button className="primary" type="submit" disabled={Boolean(busy)}>
-              {busy ? COPY.entering : COPY.signInSubmit}
+        <section className="signin-card">
+          <div className="signin-switch">
+            <button type="button" className={mode === 'login' ? 'on' : ''} onClick={() => switchMode('login')}>
+              {COPY.emailEntry}
             </button>
-            <div className="signin-links">
-              <button type="button" className="text-btn" onClick={() => setMode('people')}>
-                {COPY.backToPeople}
-              </button>
-              <button type="button" className="text-btn" onClick={() => setMode('signup')}>
-                {COPY.openShop}
-              </button>
-            </div>
-          </form>
-        ) : null}
-
-        {mode === 'signup' ? (
-          <form onSubmit={(event) => void submitSignup(event)}>
-            <p className="card-kicker">{COPY.openShop}</p>
-            <label>
-              {COPY.shopName}
-              <input value={shopName} onChange={(event) => setShopName(event.target.value)} required minLength={2} />
-            </label>
-            <label>
-              {COPY.signupOwnerName}
-              <input value={ownerName} onChange={(event) => setOwnerName(event.target.value)} required minLength={2} />
-            </label>
-            <label>
-              {COPY.email}
-              <input type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required />
-            </label>
-            <label>
-              {COPY.password}
-              <input
-                type="password"
-                autoComplete="new-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-                minLength={8}
-              />
-            </label>
-            <label>
-              {COPY.whatsapp}
-              <input value={whatsapp} onChange={(event) => setWhatsapp(event.target.value)} required minLength={8} />
-            </label>
-            <button className="primary" type="submit" disabled={Boolean(busy)}>
-              {busy ? COPY.saving : COPY.signUpSubmit}
+            <button type="button" className={mode === 'signup' ? 'on' : ''} onClick={() => switchMode('signup')}>
+              {COPY.openShop}
             </button>
-            <div className="signin-links">
-              <button type="button" className="text-btn" onClick={() => setMode('people')}>
-                {COPY.backToPeople}
+          </div>
+
+          {mode === 'login' ? (
+            <form onSubmit={(event) => void submitLogin(event)}>
+              <label>
+                {COPY.email}
+                <input type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required />
+              </label>
+              <label>
+                {COPY.password}
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                />
+              </label>
+              <button className="primary" type="submit" disabled={busy}>
+                {busy ? COPY.entering : COPY.signInSubmit}
               </button>
-            </div>
-          </form>
-        ) : null}
-        {error ? <p className="error">{error}</p> : null}
-      </section>
+            </form>
+          ) : (
+            <form onSubmit={(event) => void submitSignup(event)}>
+              <p className="signin-hint">{COPY.signUpHint}</p>
+              <label>
+                {COPY.shopName}
+                <input value={shopName} onChange={(event) => setShopName(event.target.value)} required minLength={2} />
+              </label>
+              <label>
+                {COPY.email}
+                <input type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required />
+              </label>
+              <label>
+                {COPY.password}
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                  minLength={8}
+                />
+              </label>
+              <label>
+                {COPY.phoneNumber}
+                <input
+                  value={whatsapp}
+                  onChange={(event) => setWhatsapp(event.target.value)}
+                  placeholder="0521234567"
+                  inputMode="tel"
+                  required
+                  minLength={8}
+                />
+              </label>
+              <button className="primary" type="submit" disabled={busy}>
+                {busy ? COPY.saving : COPY.signUpSubmit}
+              </button>
+            </form>
+          )}
+          {error ? <p className="error">{error}</p> : null}
+        </section>
+      </div>
     </div>
   );
 }

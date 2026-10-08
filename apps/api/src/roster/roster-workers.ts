@@ -1,17 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { hashPassword } from '@itay-chai/auth';
 import { WHATSAPP_PROVIDER } from '@itay-chai/contracts';
 import { prisma, withTenantDb } from '@itay-chai/database';
 import { assertWhatsAppFree, requireWhatsAppNumber } from '../auth/phone';
-import { customerRoleId, OPEN_SEARCH, ownerStore } from './roster.shared';
+import { pickUrl } from './pick-link';
+import { OPEN_SEARCH, ownerStore } from './roster.shared';
 
 export async function listWorkers() {
   const { tenantId, storeId } = await ownerStore();
   const workers = await prisma.employee.findMany({
     where: { tenantId, businessUnitId: storeId, userId: { not: null } },
     include: {
-      user: { select: { email: true } },
       shifts: { where: { endsAt: { gt: new Date() } }, select: { id: true } },
     },
     orderBy: { displayName: 'asc' },
@@ -19,49 +18,45 @@ export async function listWorkers() {
   const userIds = workers.flatMap((worker) => (worker.userId ? [worker.userId] : []));
   const phones = await prisma.stakeholderIdentity.findMany({
     where: { tenantId, channel: WHATSAPP_PROVIDER, userId: { in: userIds } },
-    select: { userId: true, externalId: true },
+    select: { userId: true, externalId: true, verifiedAt: true },
   });
-  const phoneOf = new Map(phones.map((row) => [row.userId, row.externalId]));
+  const identityOf = new Map(phones.map((row) => [row.userId, row]));
   return {
-    workers: workers.map((worker) => ({
-      id: worker.id,
-      name: worker.displayName,
-      email: worker.user?.email ?? null,
-      phone: worker.userId ? (phoneOf.get(worker.userId) ?? null) : null,
-      upcomingShifts: worker.shifts.length,
-    })),
+    workers: workers.map((worker) => {
+      const identity = worker.userId ? identityOf.get(worker.userId) : undefined;
+      return {
+        id: worker.id,
+        name: worker.displayName,
+        phone: identity?.externalId ?? null,
+        connected: Boolean(identity?.verifiedAt),
+        pickUrl: pickUrl(tenantId, worker.id),
+        upcomingShifts: worker.shifts.length,
+      };
+    }),
+    agent: agentNumber(),
   };
 }
 
-export async function createWorker(input: { name: string; email: string; password: string; whatsapp: string }) {
+function agentNumber() {
+  const from = process.env.TWILIO_WHATSAPP_FROM?.replace(/^whatsapp:/, '').trim();
+  if (process.env.WHATSAPP_PROVIDER !== 'twilio' || !from) {
+    return null;
+  }
+  return { number: from, join: process.env.TWILIO_WHATSAPP_JOIN?.trim() || null };
+}
+
+export async function createWorker(input: { name: string; whatsapp: string }) {
   const { tenantId, storeId } = await ownerStore();
-  const email = input.email.trim().toLowerCase();
   const phone = requireWhatsAppNumber(input.whatsapp);
   const name = input.name.trim();
-  const taken = await prisma.user.findFirst({ where: { email }, select: { id: true } });
-  if (taken) {
-    throw new ConflictException('Email already registered');
-  }
   await assertWhatsAppFree(phone);
-  const roleId = await customerRoleId();
   const userId = randomUUID();
   const employee = await withTenantDb(tenantId, async (tx) => {
     await tx.user.create({
       data: {
         id: userId,
         authSubject: `worker-${userId}`,
-        email,
         name,
-        passwordHash: hashPassword(input.password),
-      },
-    });
-    await tx.tenantMembership.create({
-      data: {
-        tenantId,
-        userId,
-        roleId,
-        businessUnitId: storeId,
-        status: 'ACTIVE',
       },
     });
     await tx.stakeholderIdentity.create({
@@ -70,7 +65,6 @@ export async function createWorker(input: { name: string; email: string; passwor
         userId,
         channel: WHATSAPP_PROVIDER,
         externalId: phone,
-        verifiedAt: new Date(),
       },
     });
     return tx.employee.create({
@@ -83,12 +77,12 @@ export async function createWorker(input: { name: string; email: string; passwor
       },
     });
   });
-  return { id: employee.id, name, email, phone, password: input.password };
+  return { id: employee.id, name, phone };
 }
 
 export async function updateWorker(
   employeeId: string,
-  input: { name?: string; password?: string; whatsapp?: string },
+  input: { name?: string; whatsapp?: string },
 ) {
   const { tenantId, storeId } = await ownerStore();
   const employee = await prisma.employee.findFirst({
@@ -109,12 +103,6 @@ export async function updateWorker(
       await tx.employee.update({ where: { id: employee.id }, data: { displayName: name } });
       await tx.user.update({ where: { id: userId }, data: { name } });
     }
-    if (input.password) {
-      await tx.user.update({
-        where: { id: userId },
-        data: { passwordHash: hashPassword(input.password) },
-      });
-    }
     if (phone) {
       await tx.stakeholderIdentity.deleteMany({
         where: { tenantId, userId, channel: WHATSAPP_PROVIDER },
@@ -125,7 +113,6 @@ export async function updateWorker(
           userId,
           channel: WHATSAPP_PROVIDER,
           externalId: phone,
-          verifiedAt: new Date(),
         },
       });
     }
@@ -134,7 +121,6 @@ export async function updateWorker(
     id: employee.id,
     ...(name ? { name } : {}),
     ...(phone ? { phone } : {}),
-    ...(input.password ? { password: input.password } : {}),
   };
 }
 

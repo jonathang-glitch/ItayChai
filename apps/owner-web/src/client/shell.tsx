@@ -12,22 +12,25 @@ type Props = {
 export function Shell({ session, children, onSignOut }: Props) {
   const membership = membershipOf(session);
   const customer = membership?.roleName === 'customer';
-  const name = personName(session.name, membership?.roleName ?? 'owner');
+  const shop = membership?.businessUnitName?.trim() ?? '';
+  const person = session.name?.trim() ?? '';
+  const title = customer ? personName(person, 'customer') : shop || personName(person, 'owner');
+  const subtitle = customer ? storeLabel(shop) : person && person !== title ? person : '';
 
   return (
-    <div className={customer ? 'app customer-app' : 'app'}>
+    <div className={customer ? 'app customer-app' : 'app owner-app'}>
       <header className="topbar">
         <p className="brand-mark small">
           <span>חי</span>
           {COPY.brand}
         </p>
         <div className="who">
+          <span className="avatar tiny">{title.slice(0, 1)}</span>
           <p>
-            <strong>{name}</strong>
-            <em>{storeLabel(membership?.businessUnitName)}</em>
+            <strong>{title}</strong>
+            {subtitle ? <em>{subtitle}</em> : null}
           </p>
-          <span className="avatar tiny">{name.slice(0, 1)}</span>
-          <button type="button" className="text-btn" onClick={onSignOut}>
+          <button type="button" className="sign-out" onClick={onSignOut}>
             {COPY.signOut}
           </button>
         </div>

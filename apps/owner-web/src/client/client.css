@@ -7,6 +7,17 @@
   --clay: #c45c32;
   --leaf: #2c6b48;
   --sand: #e8d3b0;
+  --surface: #fff;
+  --hair: #ebe6df;
+  --chip: #f1eee9;
+  --brand: #1f6b52;
+  --brand-ink: #154a39;
+  --brand-soft: #e5f1ec;
+  --brand-bright: #9be2c2;
+  --warm: #e08a4f;
+  --warn: #9a3b12;
+  --warn-soft: #fbece2;
+  --whatsapp: #1f9d55;
 }
 
 * {
@@ -22,12 +33,13 @@ body,
 body {
   margin: 0;
   color: var(--ink);
-  background: var(--paper);
-  font-family: Heebo, Assistant, 'Segoe UI', sans-serif;
+  background: #f6f1ea;
+  font-family: Rubik, Heebo, sans-serif;
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -37,27 +49,20 @@ input {
 }
 
 .signin {
-  position: relative;
   display: grid;
-  grid-template-columns: minmax(340px, 1fr) minmax(380px, 0.82fr);
-  align-items: center;
-  gap: 32px 56px;
-  padding: 6vh 8vw;
-  overflow: hidden;
-  background: #100e0c;
-  color: #f6efe6;
+  place-items: center;
+  padding: 40px 20px 56px;
+  background:
+    radial-gradient(640px 240px at 50% 0, #f6e4d2, transparent 70%),
+    var(--paper);
+  color: var(--ink);
+  font-family: Rubik, Heebo, sans-serif;
 }
 
-.signin-glow {
-  position: absolute;
-  inset: auto 12% -18% auto;
-  width: 420px;
-  height: 420px;
-  background: radial-gradient(circle, #c45c3244, transparent 70%);
-  pointer-events: none;
+.signin-panel {
+  width: min(440px, 100%);
 }
 
-.signin-story,
 .signin-card {
   position: relative;
 }
@@ -105,41 +110,69 @@ input {
 }
 
 .signin .brand-mark {
-  margin-bottom: 28px;
+  justify-content: center;
+  margin-bottom: 18px;
   font-size: 14px;
 }
 
-.signin .brand-mark span {
-  width: 38px;
-  height: 38px;
-}
-
-.signin .kicker,
-.signin .card-kicker {
-  font-size: 13px;
-}
-
 .signin h1 {
-  margin: 0 0 14px;
-  font-family: 'Frank Ruhl Libre', 'Times New Roman', serif;
-  font-size: clamp(40px, 4.4vw, 62px);
-  line-height: 1.12;
-  font-weight: 500;
+  margin: 0 0 8px;
+  font-family: Rubik, Heebo, sans-serif;
+  font-size: 32px;
+  line-height: 1.25;
+  font-weight: 600;
+  text-align: center;
 }
 
-.signin .lede {
-  max-width: 28ch;
-  color: #d8cbbd;
-  line-height: 1.65;
-  font-size: clamp(15px, 1.15vw, 17px);
+.signin-lede,
+.signin-hint {
+  margin: 0 0 18px;
+  color: var(--mute);
+  line-height: 1.55;
+  text-align: center;
+}
+
+.signin-hint {
+  margin-bottom: 14px;
+  font-size: 14px;
+  text-align: start;
 }
 
 .signin-card {
   background: var(--cream);
   color: var(--ink);
-  padding: 28px 26px;
-  border-radius: 28px;
-  box-shadow: 0 24px 60px #00000044;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+}
+
+.signin-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-bottom: 16px;
+  padding: 4px;
+  border-radius: 14px;
+  background: #efe6d8;
+}
+
+.signin-switch button {
+  border: 0;
+  background: transparent;
+  padding: 10px 12px;
+  border-radius: 11px;
+  color: var(--mute);
+  cursor: pointer;
+}
+
+.signin-switch .on {
+  background: #fff;
+  color: var(--ink);
+}
+
+.signin .primary {
+  width: 100%;
+  background: var(--clay);
 }
 
 .people {
@@ -1047,16 +1080,6 @@ input {
     display: block;
   }
 
-  .signin {
-    grid-template-columns: minmax(0, 1fr);
-    padding: 36px 20px 40px;
-    gap: 28px;
-  }
-
-  .signin-story {
-    text-align: start;
-  }
-
   .phone-card {
     flex: none;
     width: 100%;
@@ -1066,6 +1089,17 @@ input {
   .chat-shell,
   .topbar {
     padding-inline: 16px;
+  }
+
+  .roster-edit,
+  .reg-add,
+  .reg-phone {
+    grid-template-columns: 1fr;
+  }
+
+  .reg-owner,
+  .reg-phone {
+    flex-wrap: wrap;
   }
 }
 
@@ -1084,61 +1118,140 @@ input {
   gap: 16px;
 }
 
-.roster-card {
+.reg {
+  display: grid;
+  gap: 14px;
+  max-width: 680px;
+}
+
+.reg-intro h2 {
+  margin: 0 0 6px;
+  font-family: 'Frank Ruhl Libre', 'Times New Roman', serif;
+  font-size: 32px;
+  font-weight: 500;
+}
+
+.reg-intro p {
+  margin: 0;
+  max-width: 42ch;
+  color: var(--mute);
+  line-height: 1.55;
+}
+
+.reg-owner,
+.reg-card {
   background: var(--cream);
   border: 1px solid var(--line);
   border-radius: 18px;
-  padding: 16px;
 }
 
-.roster-card h2 {
-  margin: 0 0 12px;
-  font-size: 18px;
+.reg-owner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
 }
 
-.roster-card form,
-.roster-card label,
-.roster-card input,
-.roster-card select {
+.reg-owner > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.reg-owner strong,
+.reg-list strong {
   display: block;
-  width: 100%;
 }
 
-.roster-card label {
-  margin-bottom: 12px;
-  font-size: 13px;
+.reg-owner em,
+.reg-list em {
   color: var(--mute);
+  font-style: normal;
+  font-size: 14px;
 }
 
-.roster-card input,
-.roster-card select {
-  margin-top: 6px;
+.reg-phone {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reg-phone input,
+.reg-add input {
   border: 1px solid var(--line);
   background: #fff;
   padding: 12px 14px;
   border-radius: 12px;
 }
 
-.roster-list {
+.reg-card {
+  padding: 16px;
+}
+
+.reg-card h2 {
+  margin: 0 0 14px;
+  font-size: 16px;
+}
+
+.reg-card h2 span {
+  margin-inline-start: 8px;
+  color: var(--mute);
+  font-weight: 500;
+}
+
+.reg-add {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.reg-add label {
+  display: block;
+  color: var(--mute);
+  font-size: 13px;
+}
+
+.reg-add label input {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.reg-add .primary {
+  margin-bottom: 0;
+}
+
+.reg-list {
   list-style: none;
-  margin: 16px 0 0;
+  margin: 8px 0 0;
   padding: 0;
 }
 
-.roster-list li {
-  display: flex;
-  align-items: center;
+.reg-list li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   gap: 12px;
-  padding: 10px 0;
+  align-items: center;
+  padding: 12px 0;
   border-top: 1px solid var(--line);
 }
 
-.roster-list em {
-  color: var(--mute);
-  font-style: normal;
+.reg-list li:has(.reg-add) {
+  display: block;
 }
 
-.roster-list .text-btn,
-.roster-list span {
-  margin-inline-start: auto;
+.reg-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
+
+.reg-actions .primary {
+  width: auto;
+  padding: 10px 14px;
+}
+
+.text-btn.danger {
+  color: #8a1f1f;
+}
+

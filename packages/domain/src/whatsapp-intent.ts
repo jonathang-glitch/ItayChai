@@ -1,4 +1,5 @@
 import {
+  jerusalemDayKey,
   SHIFT_MATCH_ACTIONS,
   SHIFT_OFFER_ACTIONS,
   type ShiftMatchAction,
@@ -97,7 +98,7 @@ export function classifyWhatsAppText(raw?: string): WhatsAppTextIntent {
   if (/(לא יכולה? להגיע|לא אוכל להגיע|לא אגיע|לא מגיע למשמרת)/u.test(folded)) {
     return 'new';
   }
-  if (/לכסות|כיסוי|אני אכסה|אכסה|לוקחת? את המשמרת|אני אקח|(^|\s)cover(\s|$)/u.test(folded)) {
+  if (/לכסות|כיסוי|יכסה|אכסה|תכסה|לוקחת? את המשמרת|אני אקח|(^|\s)cover(\s|$)/u.test(folded)) {
     return 'cover';
   }
   if (
@@ -119,7 +120,10 @@ export function classifyWhatsAppText(raw?: string): WhatsAppTextIntent {
   ) {
     return 'yes';
   }
-  if (/(^|\s)(כן|בטח|אשמח|סבבה|יאללה|ברור|כמובן|בשמחה)(\s|$)/u.test(folded) && !/^(לא|no)(?:\s|$)/u.test(folded)) {
+  if (
+    /(^|\s)(כן|בטח|אשמח|סבבה|יאללה|ברור|כמובן|בשמחה)(\s|$)/u.test(folded) &&
+    !/^(לא|no)(?:\s|$)/u.test(folded)
+  ) {
     return 'yes';
   }
   if (
@@ -154,7 +158,7 @@ export function requestedArrangement(raw?: string): 'cover' | 'swap' | null {
   if (!folded || /^(למה|מה|מי|איזה|איך)\b/u.test(folded)) {
     return null;
   }
-  const cover = /לכסות|כיסוי/.test(folded);
+  const cover = /לכסות|כיסוי|יכסה|אכסה|תכסה/.test(folded);
   const swap = /החלפה|להחליף|נחליף/.test(folded);
   const refusesSwap = /לא (?:יכול|יכולה|רוצה) להחליף|בלי החלפה/.test(folded);
   if (cover && (!swap || refusesSwap)) {
@@ -221,19 +225,36 @@ function shiftTokens(shift: ShiftChoice) {
       .replace(/^יום\s+/, ''),
   );
   const dateShort = fold(
-    new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short', timeZone: 'Asia/Jerusalem' }).format(startsAt),
+    new Intl.DateTimeFormat('he-IL', {
+      day: 'numeric',
+      month: 'short',
+      timeZone: 'Asia/Jerusalem',
+    }).format(startsAt),
   );
   const hour = Number(
-    new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hour12: false, timeZone: 'Asia/Jerusalem' }).format(startsAt),
+    new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit',
+      hour12: false,
+      timeZone: 'Asia/Jerusalem',
+    }).format(startsAt),
   );
-  const day = new Intl.DateTimeFormat('en-GB', { day: 'numeric', timeZone: 'Asia/Jerusalem' }).format(startsAt);
-  const month = new Intl.DateTimeFormat('en-GB', { month: 'numeric', timeZone: 'Asia/Jerusalem' }).format(startsAt);
+  const day = new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    timeZone: 'Asia/Jerusalem',
+  }).format(startsAt);
+  const month = new Intl.DateTimeFormat('en-GB', {
+    month: 'numeric',
+    timeZone: 'Asia/Jerusalem',
+  }).format(startsAt);
   const part = hour < 15 ? 'בוקר' : 'ערב';
   const numeric = `${day}/${month}`;
   return { id: shift.id, label, weekday, dateShort, part, numeric, startsAt };
 }
 
-export function matchShiftFromText(raw: string | undefined, shifts: ShiftChoice[]): string | undefined {
+export function matchShiftFromText(
+  raw: string | undefined,
+  shifts: ShiftChoice[],
+): string | undefined {
   const text = fold(raw);
   if (!text || !shifts.length) {
     return undefined;
@@ -259,7 +280,9 @@ export function matchShiftFromText(raw: string | undefined, shifts: ShiftChoice[
   if (scored.length === 1) {
     return scored[0]?.id;
   }
-  const weekdays = pool.filter((shift) => shift.weekday.length >= 2 && mentions(text, shift.weekday));
+  const weekdays = pool.filter(
+    (shift) => shift.weekday.length >= 2 && mentions(text, shift.weekday),
+  );
   if (weekdays.length === 1) {
     return weekdays[0]?.id;
   }
@@ -275,7 +298,22 @@ export function matchShiftFromText(raw: string | undefined, shifts: ShiftChoice[
       });
     return soonest[0]?.id;
   }
+  if (text.includes('מחר')) {
+    const tomorrow = tomorrowKey();
+    const hits = pool.filter((shift) => jerusalemDayKey(shift.startsAt) === tomorrow);
+    const part = mentions(text, 'בוקר') ? 'בוקר' : mentions(text, 'ערב') ? 'ערב' : '';
+    const narrowed = part ? hits.filter((shift) => shift.part === part) : hits;
+    if (narrowed.length === 1) {
+      return narrowed[0]?.id;
+    }
+  }
   return undefined;
+}
+
+function tomorrowKey(now = new Date()) {
+  const [year, month, day] = jerusalemDayKey(now).split('-').map(Number);
+  const next = new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, (day ?? 1) + 1));
+  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`;
 }
 
 export function inferRequestKind(intent: WhatsAppTextIntent): 'COVER' | 'SWAP' | 'EITHER' {
@@ -288,11 +326,104 @@ export function inferRequestKind(intent: WhatsAppTextIntent): 'COVER' | 'SWAP' |
   return 'EITHER';
 }
 
+export function isDeskQuestion(raw?: string) {
+  const folded = fold(raw);
+  if (!folded) {
+    return false;
+  }
+  if (classifyWhatsAppText(raw) === 'hello' && !/[?？]/.test(raw ?? '')) {
+    return false;
+  }
+  if (/[?？]/.test(raw ?? '')) {
+    return true;
+  }
+  return /^(למה|מה|מי|איזה|איך|האם|כמה)\b/u.test(folded);
+}
+
+const WEEKDAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'] as const;
+
+function answerAboutNamedDay(folded: string, mine: string[]) {
+  const day = WEEKDAYS.find((name) => mentions(folded, name));
+  if (!day || !/משמר|יש לי|מתי|עובד/.test(folded)) {
+    return null;
+  }
+  const morning = mentions(folded, 'בוקר');
+  const evening = mentions(folded, 'ערב');
+  let matches = mine.filter((label) => mentions(fold(label), day));
+  if (morning && !evening) {
+    matches = matches.filter((label) => mentions(fold(label), 'בוקר'));
+  }
+  if (evening && !morning) {
+    matches = matches.filter((label) => mentions(fold(label), 'ערב'));
+  }
+  const when = `${day}${morning && !evening ? ' בבוקר' : evening && !morning ? ' בערב' : ''}`;
+  if (!matches.length) {
+    return `לא. אין לך משמרת ב${when}.`;
+  }
+  if (matches.length === 1) {
+    return `כן. ${matches[0]}`;
+  }
+  return `כן.\n${matches.join('\n')}`;
+}
+
+export function answerDeskQuestion(
+  text: string,
+  facts: {
+    pending?: { name: string; label: string; allowCover: boolean; allowSwap: boolean } | null;
+    mine?: string[];
+    team?: { name: string; shifts: string[] }[];
+    search?: { kind: string; label: string; status: string } | null;
+  },
+) {
+  const folded = fold(text);
+  const person = (facts.team ?? []).find((row) => row.name && folded.includes(fold(row.name)));
+  if (person && /משמר|מתי/.test(folded)) {
+    return person.shifts.length
+      ? `המשמרות של ${person.name}:\n${person.shifts.join('\n')}`
+      : `אין ל${person.name} משמרות קרובות.`;
+  }
+  const dayAnswer = answerAboutNamedDay(folded, facts.mine ?? []);
+  if (dayAnswer) {
+    return dayAnswer;
+  }
+  if (/המשמרות שלי|מה המשמרות שלי|איזה משמרות יש לי|מה יש לי/.test(folded)) {
+    return facts.mine?.length ? `המשמרות שלך:\n${facts.mine.join('\n')}` : 'אין לך משמרות קרובות.';
+  }
+  if (facts.pending) {
+    const { name, label, allowCover, allowSwap } = facts.pending;
+    if (allowCover && allowSwap) {
+      return `${name} ביקש כיסוי או החלפה ל${label}.`;
+    }
+    if (allowCover) {
+      return `${name} ביקש כיסוי ל${label}. לא החלפה.`;
+    }
+    return `${name} ביקש החלפה ל${label}. לא כיסוי.`;
+  }
+  if (facts.search) {
+    const kind =
+      facts.search.kind === 'COVER'
+        ? 'כיסוי'
+        : facts.search.kind === 'SWAP'
+          ? 'החלפה'
+          : 'כיסוי או החלפה';
+    if (facts.search.status === 'UNFILLED') {
+      return `לא נמצא ${kind} ל${facts.search.label}.`;
+    }
+    return `פתוח עכשיו: ${kind} ל${facts.search.label}.`;
+  }
+  if (facts.mine?.length) {
+    return `המשמרות שלך:\n${facts.mine.join('\n')}`;
+  }
+  return 'אין בקשה פתוחה כרגע.';
+}
+
 export function parseWhatsAppButton(buttonId?: string): WhatsAppButtonIntent | null {
   if (!buttonId) {
     return null;
   }
-  const offer = buttonId.match(new RegExp(`^offer:(${UUID}):(${SHIFT_OFFER_ACTIONS.join('|')})(?::(${UUID}))?$`, 'i'));
+  const offer = buttonId.match(
+    new RegExp(`^offer:(${UUID}):(${SHIFT_OFFER_ACTIONS.join('|')})(?::(${UUID}))?$`, 'i'),
+  );
   if (offer?.[1] && offer[2] && (SHIFT_OFFER_ACTIONS as readonly string[]).includes(offer[2])) {
     return {
       kind: 'offer',
@@ -301,7 +432,9 @@ export function parseWhatsAppButton(buttonId?: string): WhatsAppButtonIntent | n
       ...(offer[3] ? { proposedShiftId: offer[3] } : {}),
     };
   }
-  const match = buttonId.match(new RegExp(`^match:(${UUID}):(${SHIFT_MATCH_ACTIONS.join('|')})$`, 'i'));
+  const match = buttonId.match(
+    new RegExp(`^match:(${UUID}):(${SHIFT_MATCH_ACTIONS.join('|')})$`, 'i'),
+  );
   if (match?.[1] && match[2] && (SHIFT_MATCH_ACTIONS as readonly string[]).includes(match[2])) {
     return { kind: 'match', sessionId: match[1], action: match[2] as ShiftMatchAction };
   }

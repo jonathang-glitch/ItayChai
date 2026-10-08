@@ -1,0 +1,157 @@
+.owner-app {
+  overflow-x: clip;
+  background: #f6f4f0;
+}
+
+.owner-app .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: 12px 22px;
+  background: #f6f4f0e0;
+  border-bottom: 1px solid var(--hair);
+  backdrop-filter: blur(14px);
+}
+
+.owner-app .who strong {
+  font-size: 15px;
+}
+
+.owner-app .sign-out {
+  border: 1px solid var(--hair);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 7px 12px;
+  cursor: pointer;
+}
+
+.owner-desk {
+  max-width: 760px;
+  padding-top: 22px;
+}
+
+.owner-nav {
+  width: max-content;
+  max-width: 100%;
+  margin: 0 auto 24px;
+  gap: 4px;
+  padding: 4px;
+  background: var(--chip);
+  border: 0;
+}
+
+.owner-desk .owner-nav button {
+  min-width: 88px;
+  padding: 9px 16px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.owner-desk .owner-nav .on {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 4px #1d1c1a1a;
+}
+
+.owner-app .primary,
+.signin .primary {
+  background: var(--brand);
+  color: #fff;
+  border-radius: 14px;
+  font-weight: 500;
+}
+
+.owner-app .primary:hover:not(:disabled),
+.signin .primary:hover:not(:disabled) {
+  background: var(--brand-ink);
+}
+
+.owner-app input,
+.owner-app select {
+  border-color: var(--hair);
+  border-radius: 12px;
+  min-height: 44px;
+}
+
+.owner-app input:focus,
+.owner-app select:focus,
+.signin input:focus {
+  outline: 3px solid var(--brand-soft);
+  border-color: var(--brand);
+}
+
+.owner-app button:focus-visible {
+  outline: 3px solid var(--brand-bright);
+  outline-offset: 2px;
+}
+
+.reg {
+  gap: 16px;
+  margin-inline: auto;
+}
+
+.reg-card,
+.reg-owner {
+  background: var(--surface);
+  border: 1px solid var(--hair);
+  border-radius: 20px;
+}
+
+.reg-status {
+  margin-inline-start: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--chip);
+  color: var(--mute);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.reg-status.on {
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+}
+
+.reg-invite {
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--whatsapp);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.reg-intro h2 {
+  font-family: Rubik, Heebo, sans-serif;
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.signin {
+  background: #f6f4f0;
+}
+
+.signin-card {
+  background: var(--surface);
+  border: 1px solid var(--hair);
+  box-shadow: 0 18px 50px #1d1c1a0d;
+  padding: 22px;
+}
+
+.signin-switch {
+  background: var(--chip);
+}
+
+@media (max-width: 560px) {
+  .owner-app .workspace {
+    padding: 0 14px 40px;
+  }
+
+  .owner-app .topbar {
+    padding: 10px 14px;
+  }
+}

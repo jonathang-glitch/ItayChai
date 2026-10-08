@@ -26,9 +26,12 @@ import {
   prisma,
   Prisma,
   shiftTalkWithDate,
+  withTenantDb,
+  workerWelcome,
 } from '@itay-chai/database';
 import { createWhatsAppAdapter } from '@itay-chai/integrations';
 import { createCustomerRequest, answerMatch, answerOffer, cancelCustomerSearch } from '../../customer/customer.service';
+import { claimWeekReply } from '../../roster/roster-week';
 import { applyGeminiIntent } from './apply-gemini';
 import { choosePendingOffer } from './pick-pending-offer';
 
@@ -98,6 +101,23 @@ async function lockReceipt(tenantId: string, externalMessageId: string) {
   }
 }
 
+async function welcomeWorker(identity: { tenantId: string; userId: string }) {
+  const employee = await prisma.employee.findFirst({
+    where: { tenantId: identity.tenantId, userId: identity.userId },
+    select: { displayName: true },
+  });
+  if (!employee) {
+    return;
+  }
+  await enqueueWhatsAppSendNow({
+    tenantId: identity.tenantId,
+    userId: identity.userId,
+    body: workerWelcome(employee.displayName),
+    aggregateType: 'WorkerWelcome',
+    aggregateId: randomUUID(),
+  });
+}
+
 async function routeIdentified(
   identity: { tenantId: string; userId: string },
   inbound: { text?: string; buttonId?: string; externalMessageId: string },
@@ -121,6 +141,9 @@ async function routeIdentified(
   }
 
   if (isSandboxJoin(inbound.text)) {
+    if (/^\s*join\b/i.test(inbound.text ?? '')) {
+      await welcomeWorker(identity);
+    }
     return { ok: true, handled: 'unparsed' };
   }
 
@@ -152,6 +175,28 @@ async function routeIdentified(
   const agrees = matchReply === 'accept' || intent === 'accept';
   const refuses = matchReply === 'decline' || intent === 'decline_match';
   const ask = await getDeskAsk(identity.tenantId, identity.userId);
+
+  const tryGemini = async () => {
+    if (!shouldClassifyWithGemini(inbound.text, intent)) {
+      return null;
+    }
+    return applyGeminiIntent({
+      tenantId: identity.tenantId,
+      userId: identity.userId,
+      text: spoken,
+      pending,
+      matchSessionId: matchSession?.sessionId,
+      openSearchId: openSearch?.sessionId,
+    });
+  };
+  try {
+    const gemini = await tryGemini();
+    if (gemini) {
+      return gemini;
+    }
+  } catch (error) {
+    console.warn('gemini_route_failed', error instanceof Error ? error.message : 'error');
+  }
 
   if (isDeskQuestion(inbound.text)) {
     const mine = await listMyShifts(identity.userId);
@@ -227,52 +272,6 @@ async function routeIdentified(
     return { ok: true, handled: 'need_pick' };
   }
 
-  const tryGemini = async () => {
-    if (!shouldClassifyWithGemini(inbound.text, intent)) {
-      return null;
-    }
-    return applyGeminiIntent({
-      tenantId: identity.tenantId,
-      userId: identity.userId,
-      text: spoken,
-      pending,
-      matchSessionId: matchSession?.sessionId,
-      openSearchId: openSearch?.sessionId,
-    });
-  };
-  try {
-    const gemini = await tryGemini();
-    if (gemini) {
-      return gemini;
-    }
-  } catch (error) {
-    console.warn('gemini_route_failed', error instanceof Error ? error.message : 'error');
-  }
-  if (intent === 'hello') {
-    await enqueueWhatsAppSendNow({
-      tenantId: identity.tenantId,
-      userId: identity.userId,
-      body: howToStart(),
-      aggregateType: 'WhatsAppInbound',
-      aggregateId: randomUUID(),
-      deskAsk: 'none',
-    });
-    return { ok: true, handled: 'unparsed' };
-  }
-  if (matchSession && ask === 'confirm_swap' && (agrees || refuses) && !namedShift) {
-    await answerMatch(matchSession.sessionId, refuses && matchReply !== 'accept' ? 'decline' : 'accept');
-    await recordInbound(identity.tenantId, matchSession.sessionId, spoken);
-    if (matchReply === 'decline' || intent === 'help') {
-      await enqueueWhatsAppSendNow({
-        tenantId: identity.tenantId,
-        userId: identity.userId,
-        body: whatElse(),
-        aggregateType: 'WhatsAppInbound',
-        aggregateId: matchSession.sessionId,
-      });
-    }
-    return { ok: true, handled: 'match' };
-  }
   if (pending && namedShift && intent !== 'cancel') {
     await answerOffer(pending.id, 'swap', namedShift);
     await recordSpeaker(identity.tenantId, identity.userId, spoken);
@@ -322,6 +321,39 @@ async function routeIdentified(
     return { ok: true, handled: 'offer' };
   }
 
+  if (!pending && !matchSession) {
+    const claimed = await claimWeekReply(identity.tenantId, identity.userId, spoken);
+    if (claimed) {
+      await recordSpeaker(identity.tenantId, identity.userId, spoken);
+      return claimed;
+    }
+  }
+
+  if (intent === 'hello') {
+    await enqueueWhatsAppSendNow({
+      tenantId: identity.tenantId,
+      userId: identity.userId,
+      body: howToStart(),
+      aggregateType: 'WhatsAppInbound',
+      aggregateId: randomUUID(),
+      deskAsk: 'none',
+    });
+    return { ok: true, handled: 'unparsed' };
+  }
+  if (matchSession && ask === 'confirm_swap' && (agrees || refuses) && !namedShift) {
+    await answerMatch(matchSession.sessionId, refuses && matchReply !== 'accept' ? 'decline' : 'accept');
+    await recordInbound(identity.tenantId, matchSession.sessionId, spoken);
+    if (matchReply === 'decline' || intent === 'help') {
+      await enqueueWhatsAppSendNow({
+        tenantId: identity.tenantId,
+        userId: identity.userId,
+        body: whatElse(),
+        aggregateType: 'WhatsAppInbound',
+        aggregateId: matchSession.sessionId,
+      });
+    }
+    return { ok: true, handled: 'match' };
+  }
   if (intent === 'help') {
     await enqueueWhatsAppSendNow({
       tenantId: identity.tenantId,
@@ -431,6 +463,11 @@ export async function handleWhatsAppInbound(payload: unknown): Promise<InboundRe
   const userId = identity.userId;
   if (!(await lockReceipt(identity.tenantId, inbound.externalMessageId))) {
     return { ok: true, duplicate: true };
+  }
+  if (!identity.verifiedAt) {
+    await withTenantDb(identity.tenantId, (tx) =>
+      tx.stakeholderIdentity.update({ where: { id: identity.id }, data: { verifiedAt: new Date() } }),
+    );
   }
   await prisma.auditEntry.create({
     data: {

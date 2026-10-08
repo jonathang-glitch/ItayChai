@@ -3,6 +3,7 @@ import { z } from 'zod';
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_PORT: z.coerce.number().int().positive().default(3000),
+  PUBLIC_WEB_URL: z.string().url().default('http://localhost:5173'),
   DATABASE_URL: z.string().min(1),
   DATABASE_APP_URL: z.string().optional(),
   REDIS_URL: z.string().min(1).default('redis://127.0.0.1:6379'),
@@ -15,6 +16,7 @@ const envSchema = z.object({
   TWILIO_API_KEY_SID: z.string().optional(),
   TWILIO_API_KEY_SECRET: z.string().optional(),
   TWILIO_WHATSAPP_FROM: z.string().optional(),
+  TWILIO_WHATSAPP_JOIN: z.string().optional(),
   TWILIO_WHATSAPP_CONTENT_SID: z.string().optional(),
   TWILIO_WHATSAPP_ROUTE_1: z.string().optional(),
   TWILIO_WHATSAPP_ROUTE_2: z.string().optional(),

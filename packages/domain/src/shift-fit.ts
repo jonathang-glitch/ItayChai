@@ -44,9 +44,17 @@ export function fitCoworker(
   wantedAt: Date,
   days: Set<string>,
 ): CoworkerFit {
-  const busy = coworker.shifts.some((shift) => jerusalemDayKey(shift.startsAt) === jerusalemDayKey(wantedAt));
+  const busy = coworker.shifts.some(
+    (shift) => jerusalemDayKey(shift.startsAt) === jerusalemDayKey(wantedAt),
+  );
   if (busy) {
-    return { name: coworker.name, canCover: false, canSwap: false, swapShiftIds: [], block: 'busy_that_day' };
+    return {
+      name: coworker.name,
+      canCover: false,
+      canSwap: false,
+      swapShiftIds: [],
+      block: 'busy_that_day',
+    };
   }
   const swapShiftIds = swapChoicesFor(coworker.shifts, days, wantedAt).map((shift) => shift.id);
   return {

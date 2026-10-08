@@ -23,7 +23,11 @@ export function resolveDeskAction(input: {
   arrangement?: 'cover' | 'swap' | null;
   unspecified?: boolean;
 }) {
-  if (input.arrangement === 'cover' && input.action !== 'cancel_search' && input.action !== 'decline_offer') {
+  if (
+    input.arrangement === 'cover' &&
+    input.action !== 'cancel_search' &&
+    input.action !== 'decline_offer'
+  ) {
     return 'start_cover';
   }
   if (input.action === 'accept_match' && input.ask !== 'confirm_swap') {
@@ -46,7 +50,9 @@ export function resolveDeskAction(input: {
   }
   if (
     input.unspecified &&
-    (input.action === 'start_cover' || input.action === 'start_swap' || input.action === 'need_pick')
+    (input.action === 'start_cover' ||
+      input.action === 'start_swap' ||
+      input.action === 'need_pick')
   ) {
     return 'start_either';
   }

@@ -99,7 +99,14 @@ export function isFromLastDay(value: string) {
 }
 
 const DESK_OPEN = new Set(['OPEN', 'SEEKING', 'MATCH_PROPOSED', 'UNFILLED']);
-const LIVE_REQUEST = new Set(['OPEN', 'SEEKING', 'MATCH_PROPOSED', 'UNFILLED', 'COMMITTED', 'CANCELLED']);
+const LIVE_REQUEST = new Set([
+  'OPEN',
+  'SEEKING',
+  'MATCH_PROPOSED',
+  'UNFILLED',
+  'COMMITTED',
+  'CANCELLED',
+]);
 
 export function isLiveRequest(item: RequestItem) {
   if (item.shiftRequest) {
@@ -137,7 +144,9 @@ export function flattenMessages(items: RequestItem[]) {
 
 export function isOpen(item: RequestItem | string) {
   if (typeof item === 'string') {
-    return DESK_OPEN.has(item) || (item !== 'COMPLETED' && item !== 'FAILED' && !isDoneStatus(item));
+    return (
+      DESK_OPEN.has(item) || (item !== 'COMPLETED' && item !== 'FAILED' && !isDoneStatus(item))
+    );
   }
   if (item.shiftRequest) {
     return DESK_OPEN.has(item.shiftRequest.status);
@@ -185,4 +194,35 @@ export function formatShiftWhen(startsAt: string) {
     }).format(start),
   );
   return `${dayName} · ${hour < 15 ? 'בוקר' : 'ערב'}`;
+}
+
+export function inviteLink(
+  worker: { name: string; phone: string | null; pickUrl: string; connected: boolean },
+  agent: { number: string; join: string | null } | null,
+  shopName: string,
+) {
+  const lines = [
+    `היי ${worker.name}, כאן ${shopName}.`,
+    'הסידור לשבוע הקרוב פתוח. לבחירת משמרות לחצו על הקישור:',
+    worker.pickUrl,
+    '',
+    'אפשר לחזור לקישור ולעדכן בכל רגע.',
+  ];
+  if (agent && !worker.connected) {
+    const agentChat = `https://wa.me/${agent.number.replace(/\D/g, '')}?text=${encodeURIComponent(agent.join ?? 'היי')}`;
+    lines.push('', 'כדי לקבל עדכונים בוואטסאפ, לחצו כאן ושלחו את ההודעה שתיפתח:', agentChat);
+  }
+  return `https://wa.me/${(worker.phone ?? '').replace(/\D/g, '')}?text=${encodeURIComponent(lines.join('\n'))}`;
+}
+
+export function displayPhone(raw: string | null | undefined) {
+  if (!raw) {
+    return '';
+  }
+  const digits = raw.replace(/\D/g, '');
+  const local = digits.startsWith('972') ? `0${digits.slice(3)}` : digits;
+  if (local.length === 10 && local.startsWith('0')) {
+    return `${local.slice(0, 3)}-${local.slice(3, 6)}-${local.slice(6)}`;
+  }
+  return raw;
 }

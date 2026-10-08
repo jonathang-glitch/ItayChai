@@ -1,0 +1,166 @@
+.wb-empty {
+  border-style: dashed;
+  background: transparent;
+  text-align: center;
+}
+
+.wb-empty p {
+  margin: 6px auto 0;
+  max-width: 36ch;
+  color: var(--mute);
+  font-size: 14px;
+}
+
+.wb-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.wb-head > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.wb-head h3 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.wb-head p,
+.wb-progress p {
+  margin: 2px 0 0;
+  color: var(--mute);
+  font-size: 14px;
+}
+
+.wb-ask {
+  flex: none;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--whatsapp);
+  color: #fff;
+  font-weight: 500;
+}
+
+.wb-ask:disabled {
+  opacity: 0.5;
+}
+
+.wb-progress {
+  margin: 16px 0;
+}
+
+.wb-progress > div {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--chip);
+  overflow: hidden;
+}
+
+.wb-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--brand);
+  transition: width 0.3s;
+}
+
+.wb-progress b {
+  color: var(--ink);
+}
+
+.wb-gaps {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: 14px;
+}
+
+.wb-days {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.wb-day {
+  min-width: 0;
+}
+
+.wb-day h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.wb-slot {
+  margin-bottom: 8px;
+  padding: 12px;
+  border: 1px solid var(--hair);
+  border-inline-start: 3px solid var(--warm);
+  border-radius: 14px;
+}
+
+.wb-slot.done {
+  border-inline-start-color: var(--brand);
+}
+
+.wb-slot-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.wb-slot-top strong {
+  font-weight: 600;
+}
+
+.wb-slot-top span {
+  flex: 1;
+  direction: ltr;
+  text-align: end;
+  color: var(--mute);
+  font-size: 13px;
+}
+
+.wb-slot-top b {
+  font-size: 13px;
+  color: var(--warm);
+}
+
+.wb-slot.done .wb-slot-top b {
+  color: var(--brand);
+}
+
+.wb-people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.wb-people select {
+  min-height: 0;
+  padding: 6px 10px;
+  border: 1px dashed var(--hair);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--brand);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+@media (max-width: 560px) {
+  .wb-head {
+    flex-wrap: wrap;
+  }
+
+  .wb-ask {
+    width: 100%;
+  }
+}

@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
+  answerDeskQuestion,
   classifyMatchReply,
   classifyWhatsAppText,
   inferRequestKind,
+  isDeskQuestion,
   isSandboxJoin,
   matchShiftFromText,
   normalizeWhatsAppId,
@@ -62,7 +64,10 @@ test('classifies Hebrew offer and match replies', () => {
   assert.equal(classifyMatchReply('לא בא לי סבבה?'), 'unknown');
   assert.equal(isSandboxJoin('join solar-well'), true);
   assert.equal(shouldClassifyWithGemini('אני לא מרגישה טוב נראלי אני לא אוכל להגיע למשמרת'), true);
-  assert.equal(shouldClassifyWithGemini('אני רוצה שמישהו יקח במקומי את אחת מהמשמרות שלי', 'roster'), true);
+  assert.equal(
+    shouldClassifyWithGemini('אני רוצה שמישהו יקח במקומי את אחת מהמשמרות שלי', 'roster'),
+    true,
+  );
   assert.equal(shouldClassifyWithGemini('מאשר'), true);
   assert.equal(shouldClassifyWithGemini('משמרות'), true);
   assert.equal(classifyWhatsAppText('צריך מחליף בשישי'), 'new');
@@ -71,7 +76,23 @@ test('classifies Hebrew offer and match replies', () => {
   assert.equal(classifyWhatsAppText('אני רוצה שמישהו יקח במקומי את אחת מהמשמרות שלי'), 'new');
   assert.equal(requestedArrangement('אני לא יכול להחליף איתו הוא יכול לכסות עלי?'), 'cover');
   assert.equal(requestedArrangement('למה מה המשמרות של יוסי?'), null);
-  assert.equal(classifyWhatsAppText('אני לא יכול להחליף איתו הוא יכול לכסות עלי?'), 'cover');
+  assert.equal(isDeskQuestion('הוא רוצה להחליף איתי תאריך אחר או סתם שאני אחפה עליו?'), true);
+  assert.equal(isDeskQuestion('מה נשמע'), false);
+  assert.equal(isDeskQuestion('כיסוי'), false);
+  assert.equal(
+    answerDeskQuestion('הוא רוצה להחליף איתי תאריך אחר או סתם שאני אחפה עליו?', {
+      pending: { name: 'יוסי', label: 'שישי בבוקר (25 בספט׳)', allowCover: true, allowSwap: false },
+    }),
+    'יוסי ביקש כיסוי לשישי בבוקר (25 בספט׳). לא החלפה.',
+  );
+  const mine = ['חמישי בערב (8 באוק׳)', 'שישי בבוקר (9 באוק׳)', 'ראשון בערב (11 באוק׳)'];
+  assert.equal(answerDeskQuestion('יש לי משמרת בחמישי?', { mine }), 'כן. חמישי בערב (8 באוק׳)');
+  assert.equal(
+    answerDeskQuestion('יש לי משמרת בחמישי בבוקר?', { mine }),
+    'לא. אין לך משמרת בחמישי בבוקר.',
+  );
+  assert.equal(answerDeskQuestion('יש לי משמרת בשבת?', { mine }), 'לא. אין לך משמרת בשבת.');
+  assert.equal(requestedArrangement('אני רוצה שמישהו יכסה לי את המשמרת מחר'), 'cover');
   assert.equal(classifyWhatsAppText('משמרות'), 'roster');
   assert.equal(classifyWhatsAppText('מה המשמרות שלי השבוע'), 'roster');
   assert.equal(classifyWhatsAppText('איזה משמרות יש לי'), 'roster');
@@ -125,10 +146,31 @@ test('matches a named shift from free text', () => {
     label: 'שלישי בערב',
     startsAt: new Date('2026-09-15T16:00:00+03:00'),
   };
-  assert.equal(matchShiftFromText('אני רוצה להחליף ביום שישי', [friday, sunday, tuesday]), friday.id);
-  assert.equal(matchShiftFromText('אני רוצה להחליף ביום שלישי', [friday, sunday, tuesday]), tuesday.id);
+  assert.equal(
+    matchShiftFromText('אני רוצה להחליף ביום שישי', [friday, sunday, tuesday]),
+    friday.id,
+  );
+  assert.equal(
+    matchShiftFromText('אני רוצה להחליף ביום שלישי', [friday, sunday, tuesday]),
+    tuesday.id,
+  );
   assert.equal(matchShiftFromText('שישי', [friday, tuesday]), friday.id);
   assert.equal(matchShiftFromText('שלישי', [friday, tuesday]), tuesday.id);
   assert.equal(matchShiftFromText('צריך מחליף בשישי', [friday, tuesday]), friday.id);
   assert.equal(matchShiftFromText('צריך מחליף בשלישי', [friday, tuesday]), tuesday.id);
+  const [year, month, day] = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' })
+    .format(new Date())
+    .split('-')
+    .map(Number);
+  const next = new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, (day ?? 1) + 1));
+  const iso = next.toISOString().slice(0, 10);
+  const tomorrow = {
+    id: '00000000-0000-4000-8000-0000000000a5',
+    label: 'מחר',
+    startsAt: new Date(`${iso}T08:00:00+03:00`),
+  };
+  assert.equal(
+    matchShiftFromText('אני רוצה שמישהו יכסה לי את המשמרת מחר', [tomorrow, friday]),
+    tomorrow.id,
+  );
 });

@@ -8,8 +8,16 @@ test('explains cover and swap for any shift from the same rules', () => {
   const yossi = {
     name: 'יוסי',
     shifts: [
-      { id: 'fri', startsAt: new Date('2026-09-25T08:00:00+03:00'), endsAt: new Date('2026-09-25T14:00:00+03:00') },
-      { id: 'sat', startsAt: new Date('2026-09-26T16:00:00+03:00'), endsAt: new Date('2026-09-26T22:00:00+03:00') },
+      {
+        id: 'fri',
+        startsAt: new Date('2026-09-25T08:00:00+03:00'),
+        endsAt: new Date('2026-09-25T14:00:00+03:00'),
+      },
+      {
+        id: 'sat',
+        startsAt: new Date('2026-09-26T16:00:00+03:00'),
+        endsAt: new Date('2026-09-26T22:00:00+03:00'),
+      },
     ],
   };
   const days = requesterDaySet([thursday, sunday]);

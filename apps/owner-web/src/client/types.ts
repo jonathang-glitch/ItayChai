@@ -76,18 +76,31 @@ export type IncomingOffer = {
 export type RosterWorker = {
   id: string;
   name: string;
-  email: string | null;
   phone: string | null;
+  connected: boolean;
+  pickUrl: string;
   upcomingShifts: number;
 };
 
-export type RosterShift = {
-  id: string;
-  employeeId: string;
-  employeeName: string;
-  label: string;
-  startsAt: string;
-  endsAt: string;
+export type AgentNumber = { number: string; join: string | null } | null;
+
+import type { ShopSchedule } from '@itay-chai/domain';
+
+export type { ShopSchedule };
+
+export type WeekPlan = {
+  schedule: ShopSchedule;
+  holidays: { date: string; name: string; closed: boolean }[];
+  slots: {
+    id: string;
+    startsAt: string;
+    endsAt: string;
+    part: string;
+    needed: number;
+    people: { shiftId: string; employeeId: string; name: string }[];
+  }[];
+  gaps: { employeeId: string; name: string; shifts: number; weekend: number; short: boolean; weekendShort: boolean }[];
+  workers: { id: string; displayName: string }[];
 };
 
 export type ShopProfile = {

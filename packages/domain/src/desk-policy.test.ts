@@ -11,7 +11,10 @@ test('a yes commits a swap only when that swap is the open question', () => {
     resolveDeskAction({ action: 'accept_match', ask: 'confirm_swap', shiftPick: false }),
     'accept_match',
   );
-  assert.equal(resolveDeskAction({ action: 'accept_match', ask: 'none', shiftPick: false }), 'clarify');
+  assert.equal(
+    resolveDeskAction({ action: 'accept_match', ask: 'none', shiftPick: false }),
+    'clarify',
+  );
   assert.equal(
     resolveDeskAction({ action: 'accept_match', ask: 'pick_cover', shiftPick: false }),
     'clarify',
@@ -19,7 +22,10 @@ test('a yes commits a swap only when that swap is the open question', () => {
 });
 
 test('naming a shift keeps the kind that was just asked', () => {
-  assert.equal(deskAskFromLastBot('באיזו משמרת? אפשר לכתוב אחת מהרשימה:\nחמישי בערב'), 'pick_either');
+  assert.equal(
+    deskAskFromLastBot('באיזו משמרת? אפשר לכתוב אחת מהרשימה:\nחמישי בערב'),
+    'pick_either',
+  );
   assert.equal(
     resolveDeskAction({ action: 'start_swap', ask: 'pick_cover', shiftPick: true }),
     'start_cover',
@@ -47,11 +53,21 @@ test('an unspecified request is cover or swap', () => {
 
 test('a cover request starts a cover even when the model only talks', () => {
   assert.equal(
-    resolveDeskAction({ action: 'clarify', ask: 'confirm_swap', shiftPick: false, arrangement: 'cover' }),
+    resolveDeskAction({
+      action: 'clarify',
+      ask: 'confirm_swap',
+      shiftPick: false,
+      arrangement: 'cover',
+    }),
     'start_cover',
   );
   assert.equal(
-    resolveDeskAction({ action: 'accept_match', ask: 'confirm_swap', shiftPick: false, arrangement: 'cover' }),
+    resolveDeskAction({
+      action: 'accept_match',
+      ask: 'confirm_swap',
+      shiftPick: false,
+      arrangement: 'cover',
+    }),
     'start_cover',
   );
 });

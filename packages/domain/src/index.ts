@@ -6,7 +6,10 @@ export {
   classifyMatchReply,
   classifyWhatsAppText,
   inferRequestKind,
+  isDeskQuestion,
+  answerDeskQuestion,
   isSandboxJoin,
+  isShortReply,
   requestedArrangement,
   matchShiftFromText,
   normalizeWhatsAppId,
@@ -17,5 +20,26 @@ export type { ShiftChoice, WhatsAppButtonIntent, WhatsAppTextIntent } from './wh
 export { fitCoworker, requesterDaySet, swapChoicesFor } from './shift-fit.js';
 export { deskAskFromLastBot, resolveDeskAction } from './desk-policy.js';
 export type { DeskAsk } from './desk-policy.js';
+export {
+  IL_HOLIDAYS,
+  addDayKey,
+  buildWeekSlots,
+  claimRefusal,
+  dayParts,
+  defaultSchedule,
+  jerusalemInstant,
+  parseShiftPicks,
+  resolveShiftPicks,
+  readSchedule,
+  slotLabel,
+  slotTalk,
+  splitsFit,
+  upcomingHolidays,
+  weekAskText,
+  weekDayKeys,
+} from './shop-week.js';
+export type { Holiday, ShopSchedule, WeekSlot } from './shop-week.js';
+export { pickBlock, pickRefusal, pickRules } from './shop-week-picks.js';
+export type { PickSlot } from './shop-week-picks.js';
 export { requestFlags } from './request-kind.js';
 export type { RequestKind } from './request-kind.js';

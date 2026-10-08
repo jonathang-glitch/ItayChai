@@ -1,5 +1,5 @@
 import { publishSession, readSession } from './session';
-import type { AuthSession, CustomerHomeData, RequestItem, RosterShift, RosterWorker, ShiftItem, ShopProfile } from './types';
+import type { AgentNumber, AuthSession, CustomerHomeData, RequestItem, RosterWorker, ShiftItem, ShopProfile, ShopSchedule, WeekPlan } from './types';
 
 async function readJson<T>(response: Response): Promise<T> {
   const text = await response.text();
@@ -25,6 +25,10 @@ async function refreshAccessToken() {
     body: JSON.stringify({ refreshToken: session.refreshToken }),
     skipRefresh: true,
   });
+  if (result.status === 401) {
+    publishSession(null);
+    return null;
+  }
   if (result.status !== 200 || !result.body.accessToken) {
     return null;
   }
@@ -83,7 +87,6 @@ export function login(email: string, password: string) {
 
 export function signup(input: {
   shopName: string;
-  ownerName: string;
   email: string;
   password: string;
   whatsapp: string;
@@ -95,15 +98,15 @@ export function signup(input: {
 }
 
 export function listRosterWorkers(token: string, tenantId: string) {
-  return requestJson<{ workers: RosterWorker[] }>('/api/v1/roster/workers', { token, tenantId });
+  return requestJson<{ workers: RosterWorker[]; agent: AgentNumber }>('/api/v1/roster/workers', { token, tenantId });
 }
 
 export function createRosterWorker(
   token: string,
   tenantId: string,
-  input: { name: string; email: string; password: string; whatsapp: string },
+  input: { name: string; whatsapp: string },
 ) {
-  return requestJson<RosterWorker & { password?: string }>('/api/v1/roster/workers', {
+  return requestJson<RosterWorker>('/api/v1/roster/workers', {
     method: 'POST',
     token,
     tenantId,
@@ -115,9 +118,9 @@ export function updateRosterWorker(
   token: string,
   tenantId: string,
   id: string,
-  input: { name?: string; password?: string; whatsapp?: string },
+  input: { name?: string; whatsapp?: string },
 ) {
-  return requestJson<{ id: string; name?: string; phone?: string; password?: string }>(`/api/v1/roster/workers/${id}`, {
+  return requestJson<{ id: string; name?: string; phone?: string }>(`/api/v1/roster/workers/${id}`, {
     method: 'PATCH',
     token,
     tenantId,
@@ -133,28 +136,45 @@ export function deleteRosterWorker(token: string, tenantId: string, id: string) 
   });
 }
 
-export function listRosterShifts(token: string, tenantId: string) {
-  return requestJson<{ shifts: RosterShift[] }>('/api/v1/roster/shifts', { token, tenantId });
-}
-
-export function createRosterShift(
-  token: string,
-  tenantId: string,
-  input: { employeeId: string; startsAt: string; endsAt: string },
-) {
-  return requestJson<RosterShift>('/api/v1/roster/shifts', {
-    method: 'POST',
-    token,
-    tenantId,
-    body: JSON.stringify(input),
-  });
-}
-
 export function deleteRosterShift(token: string, tenantId: string, id: string) {
   return requestJson<{ ok?: boolean; message?: string }>(`/api/v1/roster/shifts/${id}`, {
     method: 'DELETE',
     token,
     tenantId,
+  });
+}
+
+export function getRosterWeek(token: string, tenantId: string) {
+  return requestJson<WeekPlan>('/api/v1/roster/week', { token, tenantId });
+}
+
+export function saveRosterWeek(token: string, tenantId: string, schedule: ShopSchedule) {
+  return requestJson<WeekPlan>('/api/v1/roster/week', {
+    method: 'POST',
+    token,
+    tenantId,
+    body: JSON.stringify(schedule),
+  });
+}
+
+export function buildRosterWeek(token: string, tenantId: string) {
+  return requestJson<WeekPlan>('/api/v1/roster/week/build', { method: 'POST', token, tenantId });
+}
+
+export function askRosterWeek(token: string, tenantId: string) {
+  return requestJson<{ sent: number; queued: number; skipped: number }>('/api/v1/roster/week/ask', {
+    method: 'POST',
+    token,
+    tenantId,
+  });
+}
+
+export function assignRosterSlot(token: string, tenantId: string, employeeId: string, slotId: string) {
+  return requestJson<WeekPlan>('/api/v1/roster/week/assign', {
+    method: 'POST',
+    token,
+    tenantId,
+    body: JSON.stringify({ employeeId, slotId }),
   });
 }
 

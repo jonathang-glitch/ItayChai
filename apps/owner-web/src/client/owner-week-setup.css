@@ -1,0 +1,273 @@
+.ws-head {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.ws-step {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ws-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 4px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.ws-head small {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--chip);
+  color: var(--mute);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.ws-head p,
+.ws-row em,
+.ws-list em {
+  margin: 0;
+  color: var(--mute);
+  font-size: 14px;
+  font-style: normal;
+  line-height: 1.5;
+}
+
+.ws-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.ws-days button {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 10px 0;
+  border: 1px solid var(--hair);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--mute);
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.ws-days b {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.ws-days span {
+  font-size: 11px;
+}
+
+.ws-days .on {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+  color: var(--brand-ink);
+}
+
+.ws-times input,
+.ws-close input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--hair);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.ws-segment {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--chip);
+}
+
+.ws-segment button {
+  padding: 10px 6px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--mute);
+}
+
+.ws-segment .on {
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 500;
+  box-shadow: 0 1px 4px #1d1c1a1a;
+}
+
+.ws-shifts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ws-shifts li {
+  min-width: 0;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+}
+
+.ws-shifts b {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.ws-times {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.ws-times label {
+  min-width: 0;
+  color: var(--brand-ink);
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.ws-times input {
+  display: block;
+  margin-top: 4px;
+  padding: 8px 6px;
+  border-color: transparent;
+  font-size: 16px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.ws-times input:hover {
+  border-color: var(--brand);
+}
+
+.ws-shift-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  color: var(--mute);
+  font-size: 13px;
+}
+
+.ws-warn-text {
+  color: var(--warn);
+}
+
+.ws-row,
+.ws-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ws-row {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--hair);
+}
+
+.ws-row > div:first-child,
+.ws-list li > div:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.ws-row strong,
+.ws-list strong {
+  display: block;
+  font-weight: 500;
+}
+
+.ws-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ws-list li {
+  padding: 12px 0;
+  border-top: 1px solid var(--hair);
+}
+
+.ws-list li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.ws-state {
+  color: var(--mute);
+  font-size: 13px;
+}
+
+.ws-state.open {
+  color: var(--brand);
+}
+
+.ws-more {
+  margin-top: 4px;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  color: var(--brand);
+}
+
+.ws-close {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.ws-close input {
+  flex: 1;
+  padding: 10px 12px;
+}
+
+.ws-close button {
+  flex: none;
+  padding: 10px 14px;
+  border: 1px solid var(--hair);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.ws-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+@media (max-width: 560px) {
+  .ws-days span {
+    display: none;
+  }
+}

@@ -31,7 +31,7 @@ const acceptSchema = z.object({
 
 const signupSchema = z.object({
   shopName: z.string().trim().min(2).max(80),
-  ownerName: z.string().trim().min(2).max(80),
+  ownerName: z.string().trim().min(2).max(80).optional(),
   email: z.string().trim().email(),
   password: z.string().min(8).max(80),
   whatsapp: z.string().trim().min(8).max(20),

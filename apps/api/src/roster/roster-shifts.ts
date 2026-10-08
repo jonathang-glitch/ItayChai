@@ -1,6 +1,6 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { jerusalemDayKey, shiftLabelFromStart } from '@itay-chai/contracts';
-import { prisma, withTenantDb } from '@itay-chai/database';
+import { Prisma, prisma, withTenantDb } from '@itay-chai/database';
 import { assertShiftWindow, OPEN_SEARCH, ownerStore } from './roster.shared';
 
 export async function listShifts() {
@@ -63,7 +63,13 @@ export async function createShift(input: { employeeId: string; startsAt: string;
       },
     }),
   );
-  return { id: shift.id, employeeId: shift.employeeId, label: shift.label, startsAt: shift.startsAt, endsAt: shift.endsAt };
+  return {
+    id: shift.id,
+    employeeId: shift.employeeId,
+    label: shift.label,
+    startsAt: shift.startsAt,
+    endsAt: shift.endsAt,
+  };
 }
 
 export async function updateShift(shiftId: string, input: { startsAt: string; endsAt: string }) {
@@ -85,7 +91,13 @@ export async function updateShift(shiftId: string, input: { startsAt: string; en
       data: { label: shiftLabelFromStart(startsAt), startsAt, endsAt },
     }),
   );
-  return { id: shift.id, employeeId: shift.employeeId, label: shift.label, startsAt: shift.startsAt, endsAt: shift.endsAt };
+  return {
+    id: shift.id,
+    employeeId: shift.employeeId,
+    label: shift.label,
+    startsAt: shift.startsAt,
+    endsAt: shift.endsAt,
+  };
 }
 
 export async function deleteShift(shiftId: string) {
@@ -97,35 +109,41 @@ export async function deleteShift(shiftId: string) {
   if (!current) {
     throw new NotFoundException('Shift not found');
   }
-  await withTenantDb(tenantId, async (tx) => {
-    const openRequest = await tx.shiftSwapRequest.findFirst({
-      where: {
-        tenantId,
-        status: { in: [...OPEN_SEARCH] },
-        OR: [{ shiftId: current.id }, { proposedShiftId: current.id }],
-      },
-      select: { id: true },
-    });
-    const openOffer = await tx.shiftOffer.findFirst({
-      where: { tenantId, proposedShiftId: current.id, status: { in: ['PENDING', 'QUEUED'] } },
-      select: { id: true },
-    });
-    if (openRequest || openOffer) {
-      throw new ConflictException('Shift is in an open search');
-    }
-    await tx.shiftSwapRequest.updateMany({
-      where: { tenantId, shiftId: current.id },
-      data: { shiftId: null },
-    });
-    await tx.shiftSwapRequest.updateMany({
-      where: { tenantId, proposedShiftId: current.id },
-      data: { proposedShiftId: null },
-    });
-    await tx.shiftOffer.updateMany({
-      where: { tenantId, proposedShiftId: current.id },
-      data: { proposedShiftId: null },
-    });
-    await tx.shift.delete({ where: { id: current.id } });
-  });
+  await withTenantDb(tenantId, (tx) =>
+    removeShiftIn(tx, tenantId, current.id, 'Shift is in an open search'),
+  );
   return { ok: true };
+}
+
+export async function removeShiftIn(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  shiftId: string,
+  busy: string,
+) {
+  const openRequest = await tx.shiftSwapRequest.findFirst({
+    where: {
+      tenantId,
+      status: { in: [...OPEN_SEARCH] },
+      OR: [{ shiftId }, { proposedShiftId: shiftId }],
+    },
+    select: { id: true },
+  });
+  const openOffer = await tx.shiftOffer.findFirst({
+    where: { tenantId, proposedShiftId: shiftId, status: { in: ['PENDING', 'QUEUED'] } },
+    select: { id: true },
+  });
+  if (openRequest || openOffer) {
+    throw new ConflictException(busy);
+  }
+  await tx.shiftSwapRequest.updateMany({ where: { tenantId, shiftId }, data: { shiftId: null } });
+  await tx.shiftSwapRequest.updateMany({
+    where: { tenantId, proposedShiftId: shiftId },
+    data: { proposedShiftId: null },
+  });
+  await tx.shiftOffer.updateMany({
+    where: { tenantId, proposedShiftId: shiftId },
+    data: { proposedShiftId: null },
+  });
+  await tx.shift.delete({ where: { id: shiftId } });
 }

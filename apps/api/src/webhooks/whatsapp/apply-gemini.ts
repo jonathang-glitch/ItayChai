@@ -85,9 +85,7 @@ async function deskFacts(tenantId: string, userId: string) {
       kind: row.kind,
       shift: row.shift ? shiftTalkWithDate(row.shift.startsAt) : '',
     })),
-    finish: (process.env.WHATSAPP_PROVIDER === 'twilio' ? 'live_auto' : 'ask_coworker') as
-      | 'live_auto'
-      | 'ask_coworker',
+    finish: 'ask_coworker' as const,
   };
 }
 
@@ -200,7 +198,7 @@ export async function applyGeminiIntent(input: {
     const labels = (upcoming.length ? upcoming : mine).map((shift) =>
       shift.startsAt ? shiftTalkWithDate(new Date(shift.startsAt)) : shift.label,
     );
-    await send(reply || myShifts(labels));
+    await send(myShifts(labels));
     return { ok: true, handled: 'roster' };
   }
   if (action === 'accept_match' && input.matchSessionId) {

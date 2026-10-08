@@ -7,6 +7,7 @@ import { SignIn } from './sign-in';
 import { SESSION_EVENT, clearSession, isCustomer, readSession, writeCachedShifts, writeSession } from './session';
 import type { AuthSession } from './types';
 import './client.css';
+import './owner-theme.css';
 
 export function ClientApp() {
   const [session, setSession] = useState<AuthSession | null>(() => readSession());
@@ -15,6 +16,7 @@ export function ClientApp() {
     function onSession(event: Event) {
       const next = (event as CustomEvent<AuthSession | null>).detail;
       if (!next) {
+        setSession(null);
         return;
       }
       setSession((current) =>

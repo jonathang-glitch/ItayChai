@@ -17,18 +17,12 @@ export async function ownerStore() {
   if (!membership?.businessUnitId) {
     throw new BadRequestException('Shop store is missing');
   }
-  return { tenantId, userId, storeId: membership.businessUnitId, shopName: membership.businessUnit?.name ?? '' };
-}
-
-export async function customerRoleId() {
-  const role = await prisma.role.findFirst({
-    where: { name: ROLE_NAMES.CUSTOMER, tenantId: null },
-    select: { id: true },
-  });
-  if (!role) {
-    throw new Error('Customer role is missing');
-  }
-  return role.id;
+  return {
+    tenantId,
+    userId,
+    storeId: membership.businessUnitId,
+    shopName: membership.businessUnit?.name ?? '',
+  };
 }
 
 export function assertShiftWindow(startsAt: Date, endsAt: Date) {
@@ -42,4 +36,3 @@ export function assertShiftWindow(startsAt: Date, endsAt: Date) {
     throw new BadRequestException('Shift must start and end on the same day');
   }
 }
-

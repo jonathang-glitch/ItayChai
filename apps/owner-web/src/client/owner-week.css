@@ -1,0 +1,95 @@
+.wk {
+  display: grid;
+  gap: 16px;
+  width: 100%;
+  max-width: 720px;
+  min-width: 0;
+  margin-inline: auto;
+}
+
+.wk-loading {
+  margin: 40px auto;
+  color: var(--mute);
+  text-align: center;
+}
+
+.wk-loading button {
+  padding: 10px 16px;
+  border: 1px solid var(--hair);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--brand);
+  font: inherit;
+  cursor: pointer;
+}
+
+.wk-intro h2 {
+  margin: 0 0 4px;
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.wk-intro p {
+  margin: 0;
+  color: var(--mute);
+}
+
+.wk-bar {
+  position: sticky;
+  bottom: 12px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  padding-inline-start: 18px;
+  border-radius: 18px;
+  background: var(--ink);
+  color: #fff;
+  box-shadow: 0 16px 40px #1d1c1a33;
+}
+
+.wk-bar > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.wk-bar strong,
+.wk-bar span {
+  display: block;
+}
+
+.wk-bar strong {
+  font-weight: 500;
+}
+
+.wk-bar span {
+  color: #ffffffa6;
+  font-size: 13px;
+}
+
+.owner-app .wk-bar .primary {
+  flex: none;
+  padding: 12px 18px;
+  background: var(--brand-bright);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.wk-note {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  font-size: 14px;
+}
+
+.wk-note.good {
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+}
+
+.wk-note.bad {
+  background: var(--warn-soft);
+  color: var(--warn);
+}

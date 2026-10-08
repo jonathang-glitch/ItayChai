@@ -10,6 +10,7 @@
     "lint": "eslint src"
   },
   "dependencies": {
+    "@itay-chai/domain": "workspace:*",
     "@itay-chai/ui": "workspace:*",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"

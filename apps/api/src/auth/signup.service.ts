@@ -8,7 +8,7 @@ import { assertWhatsAppFree, requireWhatsAppNumber } from './phone';
 
 export async function signUp(input: {
   shopName: string;
-  ownerName: string;
+  ownerName?: string;
   email: string;
   password: string;
   whatsapp: string;
@@ -45,7 +45,7 @@ export async function signUp(input: {
         id: userId,
         authSubject: `signup-${userId}`,
         email,
-        name: input.ownerName.trim(),
+        name: (input.ownerName ?? input.shopName).trim(),
         passwordHash: hashPassword(input.password),
       },
     });

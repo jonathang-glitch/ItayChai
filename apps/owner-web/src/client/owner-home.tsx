@@ -3,12 +3,13 @@ import { decideShiftRequest, listOwnerRequests } from './api';
 import { COPY } from './copy';
 import { isDone, isOpen, onOwnerDesk } from './format';
 import { membershipOf, readCachedInbox, writeCachedInbox } from './session';
+import { OwnerRegistration } from './owner-registration';
 import { OwnerRoster } from './owner-roster';
 import { ShiftCard } from './shift-card';
 import type { AuthSession, RequestItem } from './types';
 
 type Filter = 'all' | 'open' | 'done';
-type View = 'desk' | 'roster';
+type View = 'desk' | 'registration' | 'roster';
 
 type Props = {
   session: AuthSession;
@@ -85,14 +86,22 @@ export function OwnerHome({ session }: Props) {
 
   return (
     <main className="workspace owner-desk">
-      <div className="filters">
+      <div className="filters owner-nav">
         <button type="button" className={view === 'desk' ? 'on' : ''} onClick={() => setView('desk')}>
           {COPY.desk}
+        </button>
+        <button
+          type="button"
+          className={view === 'registration' ? 'on' : ''}
+          onClick={() => setView('registration')}
+        >
+          {COPY.registration}
         </button>
         <button type="button" className={view === 'roster' ? 'on' : ''} onClick={() => setView('roster')}>
           {COPY.roster}
         </button>
       </div>
+      {view === 'registration' ? <OwnerRegistration session={session} /> : null}
       {view === 'roster' ? <OwnerRoster session={session} /> : null}
       {view === 'desk' ? (
       <>

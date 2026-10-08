@@ -24,44 +24,53 @@ export function offerPrompt(offer: IncomingOffer) {
 export const COPY = {
   brand: 'איתי חי',
   signInKicker: 'לעסקים מקומיים',
-  signInTitle: 'העסק רץ בשיחה.',
-  signInLede: 'הלקוח כותב. אתם רואים. מטפלים. בלי אפליקציה חדשה שהצוות צריך ללמוד.',
-  continueAs: 'בחרו איך להיכנס',
-  emailEntry: 'כניסה עם אימייל',
-  openShop: 'פתיחת עסק',
-  backToPeople: 'חזרה לבחירה',
+  signInTitle: 'העסק נכנס לכאן.',
+  signInLede: 'מנהלים את המשמרות, והצוות מדבר עם הסוכן בוואטסאפ.',
+  emailEntry: 'כניסה',
+  openShop: 'רישום',
+  signUpHint: 'רושמים את העסק. הצוות לא נכנס לאתר.',
+  phoneNumber: 'מספר',
   email: 'אימייל',
   password: 'סיסמה',
   shopName: 'שם העסק',
   signupOwnerName: 'השם שלך',
   whatsapp: 'וואטסאפ',
   signInSubmit: 'כניסה',
-  signUpSubmit: 'פותחים את העסק',
+  signUpSubmit: 'רישום',
   emailTaken: 'האימייל הזה כבר רשום.',
-  roster: 'צוות ומשמרות',
+  roster: 'משמרות',
+  registration: 'הרשמה',
+  registrationTitle: 'הרשמה',
+  registrationLede: 'רק העסק נכנס לאתר. הצוות נרשם כאן בשם ובמספר וואטסאפ, ומשם מדבר עם הסוכן.',
   desk: 'פניות',
-  addWorker: 'עובד חדש',
-  workerName: 'שם העובד',
-  saveWorker: 'שומרים עובד',
-  workerSaved: 'העבירו לעובד את האימייל והסיסמה. הם מופיעים כאן פעם אחת.',
-  newPassword: 'סיסמה חדשה',
+  ownerUpdates: 'עדכונים אליך',
+  changePhone: 'שינוי מספר',
+  registeredWorkers: 'רשומים',
+  workerName: 'שם',
+  saveWorker: 'רישום',
+  workerSaved: 'נרשם. ההודעות יגיעו לוואטסאפ הזה.',
+  editWorker: 'עריכה',
+  cancelEdit: 'ביטול',
+  workerUpdated: 'הפרטים נשמרו.',
   saveChanges: 'שומרים',
-  passwordShown: 'הסיסמה החדשה:',
-  myWhatsapp: 'הוואטסאפ שלי',
-  savePhone: 'שומרים מספר',
-  phoneSaved: 'המספר נשמר. עדכונים יישלחו אליו.',
+  removeAsk: 'להסיר?',
+  confirmRemove: 'מסירים',
+  badPhone: 'המספר צריך להיות ישראלי, למשל 052-123-4567.',
+  registerFirst: 'קודם רושמים אדם בלשונית הרשמה.',
+  savePhone: 'שומרים',
+  phoneSaved: 'המספר נשמר. עדכונים יישלחו אליך.',
   addShift: 'משמרת חדשה',
   shiftWorker: 'עובד',
   shiftDate: 'תאריך',
   shiftStart: 'התחלה',
   shiftEnd: 'סיום',
   saveShift: 'שומרים משמרת',
-  noWorkers: 'עדיין אין עובדים.',
+  noWorkers: 'אין אנשים רשומים. מוסיפים שם ומספר, והסוכן מדבר איתם בוואטסאפ.',
   noRosterShifts: 'אין משמרות קרובות.',
   remove: 'מחיקה',
   openSearch: 'יש חיפוש פתוח. סוגרים אותו ואז מוחקים.',
   sameDay: 'לעובד הזה כבר יש משמרת באותו יום.',
-  phoneUsed: 'המספר הזה כבר שמור אצל מישהו בעסק.',
+  phoneUsed: 'המספר הזה כבר רשום.',
   ownerName: 'נועה',
   ownerRole: 'בעלת העסק',
   ownerPlace: 'חנות תל אביב',
@@ -124,68 +133,6 @@ export const COPY = {
   decided: 'ההחלטה נשמרה',
 };
 
-export const PEOPLE = [
-  {
-    key: 'noa',
-    email: 'owner-a@example.com',
-    password: 'dev-password',
-    name: 'נועה',
-    role: 'בעלת העסק',
-    place: 'חנות תל אביב',
-    avatar: 'owner',
-  },
-  {
-    key: 'ori',
-    email: 'customer-a@example.com',
-    password: 'dev-password',
-    name: 'אורי',
-    role: 'עובד',
-    place: 'פונה לחנות',
-    avatar: 'customer',
-  },
-  {
-    key: 'dana',
-    email: 'dana-a@example.com',
-    password: 'dev-password',
-    name: 'דנה',
-    role: 'עובדת',
-    place: 'פונה לחנות',
-    avatar: 'customer',
-  },
-  {
-    key: 'yossi',
-    email: 'yossi-a@example.com',
-    password: 'dev-password',
-    name: 'יוסי',
-    role: 'עובד',
-    place: 'פונה לחנות',
-    avatar: 'customer',
-  },
-  {
-    key: 'roi',
-    email: 'roi-a@example.com',
-    password: 'dev-password',
-    name: 'רועי',
-    role: 'עובד',
-    place: 'בלי משמרות קרובות',
-    avatar: 'customer',
-  },
-  {
-    key: 'shira',
-    email: 'shira-a@example.com',
-    password: 'dev-password',
-    name: 'שירה',
-    role: 'עובדת',
-    place: 'עובדת שבת בערב',
-    avatar: 'customer',
-  },
-] as const;
-
-export const ACCOUNTS = {
-  owner: { email: 'owner-a@example.com', password: 'dev-password' },
-  customer: { email: 'customer-a@example.com', password: 'dev-password' },
-} as const;
-
 const STATUS: Record<string, string> = {
   DRAFT: 'חדשה',
   INITIALIZING: 'בטיפול',
@@ -209,6 +156,46 @@ const STATUS: Record<string, string> = {
 
 export function statusLabel(status: string) {
   return STATUS[status] ?? status;
+}
+
+function apiMessage(body: unknown) {
+  if (!body || typeof body !== 'object' || !('message' in body)) {
+    return '';
+  }
+  const message = (body as { message: unknown }).message;
+  if (typeof message === 'string') {
+    return message;
+  }
+  if (message && typeof message === 'object') {
+    return 'Check the hours and open days';
+  }
+  return '';
+}
+
+export function rosterFailure(body: unknown) {
+  const message = apiMessage(body);
+  if (message === 'Email already registered') {
+    return COPY.emailTaken;
+  }
+  if (message === 'Phone already used') {
+    return COPY.phoneUsed;
+  }
+  if (message === 'Enter a phone number with country code') {
+    return COPY.badPhone;
+  }
+  if (message === 'Worker has an open search' || message === 'Shift is in an open search') {
+    return COPY.openSearch;
+  }
+  if (message === 'Shift already exists that day') {
+    return COPY.sameDay;
+  }
+  if (message === 'Close must be after open' || message === 'Check the hours and open days') {
+    return 'שעת הסגירה צריכה להיות אחרי הפתיחה, וחייב להיות יום פתוח.';
+  }
+  if (/[\u0590-\u05FF]/.test(message)) {
+    return message;
+  }
+  return COPY.down;
 }
 
 export function storeLabel(name: string | null | undefined) {
